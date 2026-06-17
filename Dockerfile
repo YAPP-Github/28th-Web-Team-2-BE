@@ -8,7 +8,7 @@ COPY --chown=gradle:gradle auth-api ./auth-api
 COPY --chown=gradle:gradle feed-api ./feed-api
 
 RUN chmod +x gradlew
-RUN ./gradlew :feed-api:clean :feed-api:bootJar -x test --no-daemon
+RUN ./gradlew :feed-api:clean :feed-api:bootJar -x test --no-daemon --info
 
 FROM amazoncorretto:21-alpine AS runtime
 
