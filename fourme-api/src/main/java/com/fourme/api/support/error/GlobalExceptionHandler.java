@@ -10,9 +10,25 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ErrorResponse> handleApiException(
+            ApiException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+                exception.status().value(),
+                exception.code(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                exception.details()
+        );
+        return ResponseEntity.status(exception.status()).body(response);
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
@@ -43,6 +59,19 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return invalidRequest(request, Map.of("body", "request body is not readable"));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(
+            HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(),
+                ApiErrorCode.RESOURCE_NOT_FOUND,
+                ApiErrorCode.RESOURCE_NOT_FOUND.defaultMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     @ExceptionHandler(Exception.class)
