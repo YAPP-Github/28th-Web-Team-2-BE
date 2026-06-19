@@ -1,4 +1,5 @@
 rootProject.name = 'feed'
 
-include 'feed-api'
-include 'auth-api'
+include 'fourme-api'
+include 'fourme-core'
+include 'fourme-infrastructure:persistence'

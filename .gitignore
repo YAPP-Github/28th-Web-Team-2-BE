@@ -25,6 +25,8 @@ bin/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+__pycache__/
+docs/
 
 ### NetBeans ###
 /nbproject/private/
@@ -35,3 +37,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Local AI agent runtimes ###
+.agent/
+.agents/
+.claude/
+.codex/
+.omx/
