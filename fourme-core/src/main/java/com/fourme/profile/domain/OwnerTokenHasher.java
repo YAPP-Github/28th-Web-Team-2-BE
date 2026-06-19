@@ -1,6 +1,7 @@
 package com.fourme.profile.domain;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Base64;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -29,5 +30,15 @@ public class OwnerTokenHasher {
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to hash owner token", exception);
         }
+    }
+
+    public boolean matches(String ownerToken, String ownerTokenHash) {
+        if (ownerToken == null || ownerTokenHash == null) {
+            return false;
+        }
+
+        byte[] actualHash = hash(ownerToken).getBytes(StandardCharsets.UTF_8);
+        byte[] expectedHash = ownerTokenHash.getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(actualHash, expectedHash);
     }
 }
