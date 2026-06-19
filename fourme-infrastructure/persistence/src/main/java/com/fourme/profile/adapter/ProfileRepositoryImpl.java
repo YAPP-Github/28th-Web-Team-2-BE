@@ -4,23 +4,22 @@ import com.fourme.profile.domain.Profile;
 import com.fourme.profile.port.ProfileRepository;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class InMemoryProfileRepository implements ProfileRepository {
+@RequiredArgsConstructor
+public class ProfileRepositoryImpl implements ProfileRepository {
 
-    private final ConcurrentMap<UUID, Profile> profiles = new ConcurrentHashMap<>();
+    private final ProfileJpaRepository profileJpaRepository;
 
     @Override
     public Profile save(Profile profile) {
-        profiles.put(profile.id(), profile);
-        return profile;
+        return profileJpaRepository.save(profile);
     }
 
     @Override
     public Optional<Profile> findById(UUID profileId) {
-        return Optional.ofNullable(profiles.get(profileId));
+        return profileJpaRepository.findById(profileId);
     }
 }

@@ -9,6 +9,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     runtimeOnly project(':fourme-infrastructure:persistence')
+
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 tasks.named('bootJar') {
