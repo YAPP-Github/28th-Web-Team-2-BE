@@ -7,6 +7,7 @@ import com.fourme.profile.application.CreateProfileResult;
 import com.fourme.profile.application.ProfileApplicationService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,13 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/profiles")
+@RequiredArgsConstructor
 public class ProfileController {
 
     private final ProfileApplicationService profileApplicationService;
-
-    public ProfileController(ProfileApplicationService profileApplicationService) {
-        this.profileApplicationService = profileApplicationService;
-    }
 
     @PostMapping
     public ResponseEntity<CreateProfileResponse> createProfile(
