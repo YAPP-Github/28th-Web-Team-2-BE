@@ -20,7 +20,7 @@ Provide Headroom in this repository without changing a developer's global Codex 
 
 ### Bootstrap and CLI wrapper
 
-Add `scripts/setup-headroom` to create `.headroom/venv` and install `headroom-ai[proxy,code]`. Add `.headroom/` to `.gitignore`.
+Add `scripts/setup-headroom` to create `.headroom/venv` and install `headroom-ai[proxy,code]`. Track `.headroom/.gitignore` so the runtime remains excluded without overlapping the user's root `.gitignore` changes.
 
 Add `scripts/codex-headroom` to resolve the repository root, require the local installation, set `HEADROOM_TELEMETRY=off`, and run `headroom wrap codex` with the caller's arguments. This is the automatic-compression path for Codex CLI.
 
@@ -46,4 +46,4 @@ The skill is advisory. It does not claim that desktop-app traffic is transparent
 
 Verify the local package version, the MCP server handshake through the project config, a compression-and-retrieval smoke test, and CLI-wrapper argument forwarding. Do not make provider API calls during verification.
 
-To roll back, remove the project skill, MCP configuration, launcher scripts, and `.headroom/` ignore entry; then delete the untracked `.headroom/` directory.
+To roll back, remove the project skill, MCP configuration, launcher scripts, and `.headroom/` directory.
