@@ -20,6 +20,7 @@ import com.looky.survey.domain.SurveyStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -46,7 +47,8 @@ class SurveyCommandServiceTest {
             surveyRepository,
             questionRepository,
             submissionRepository,
-            clock
+            clock,
+            new SurveyPolicy(Duration.ofHours(24))
     );
 
     @Test
@@ -62,6 +64,21 @@ class SurveyCommandServiceTest {
         assertEquals(ResultStatus.WAITING_SELF_RESPONSE, result.resultStatus());
         assertEquals(3, result.requiredPeerSubmissionCount());
         assertEquals(OffsetDateTime.now(clock).plusHours(24), result.resultAvailableAt());
+    }
+
+    @Test
+    void createSurveyUsesConfiguredResultOpenDelay() {
+        SurveyCommandService zeroDelayService = new SurveyCommandService(
+                surveyRepository,
+                questionRepository,
+                submissionRepository,
+                clock,
+                new SurveyPolicy(Duration.ZERO)
+        );
+
+        SurveyCreatedResult result = zeroDelayService.createSurvey(new CreateSurveyCommand("만두"));
+
+        assertEquals(OffsetDateTime.now(clock), result.resultAvailableAt());
     }
 
     @Test

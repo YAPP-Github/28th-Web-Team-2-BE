@@ -33,25 +33,27 @@ public class SurveyCommandService implements SurveyService {
 
     private static final int QUESTION_COUNT = 8;
     private static final int REQUIRED_PEER_SUBMISSION_COUNT = 3;
-    private static final Duration RESULT_OPEN_DELAY = Duration.ofHours(24);
     private static final char[] CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
 
     private final SurveyRepository surveyRepository;
     private final QuestionRepository questionRepository;
     private final SubmissionRepository submissionRepository;
     private final Clock clock;
+    private final SurveyPolicy surveyPolicy;
     private final SecureRandom random = new SecureRandom();
 
     public SurveyCommandService(
             SurveyRepository surveyRepository,
             QuestionRepository questionRepository,
             SubmissionRepository submissionRepository,
-            Clock clock
+            Clock clock,
+            SurveyPolicy surveyPolicy
     ) {
         this.surveyRepository = surveyRepository;
         this.questionRepository = questionRepository;
         this.submissionRepository = submissionRepository;
         this.clock = clock;
+        this.surveyPolicy = surveyPolicy;
     }
 
     @Override
@@ -62,7 +64,7 @@ public class SurveyCommandService implements SurveyService {
                 generateCode(),
                 REQUIRED_PEER_SUBMISSION_COUNT,
                 now,
-                now.plus(RESULT_OPEN_DELAY)
+                now.plus(surveyPolicy.resultOpenDelay())
         );
 
         return new SurveyCreatedResult(

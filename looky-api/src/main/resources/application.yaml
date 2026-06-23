@@ -1,4 +1,6 @@
 looky:
+  survey:
+    result-open-delay-hours: 24
   result-generation:
     fixed-delay: 60000
 
