@@ -2,6 +2,7 @@ package com.looky.api.survey;
 
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
+import com.looky.result.application.ResultQueryService;
 import com.looky.survey.application.SurveyService;
 import com.looky.survey.application.dto.AnswerCommand;
 import com.looky.survey.application.dto.CreateSurveyCommand;
@@ -46,6 +47,9 @@ class SurveyControllerTest {
 
     @MockitoBean
     private SurveyService surveyService;
+
+    @MockitoBean
+    private ResultQueryService resultQueryService;
 
     @Test
     void surveyControllerImplementsSurveyApi() {
@@ -216,7 +220,7 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyResultReturnsReadyResultWithQuadrantImages() throws Exception {
-        given(surveyService.getSurveyResult("b91k2p8xq4z2"))
+        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
                 .willReturn(new SurveyResultResult(
                         "b91k2p8xq4z2",
                         Map.of(
@@ -241,7 +245,7 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyResultReturnsConflictWhenResultIsNotReady() throws Exception {
-        given(surveyService.getSurveyResult("b91k2p8xq4z2"))
+        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
                 .willThrow(new LookyException(ErrorCode.RESULT_NOT_READY));
 
         mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))

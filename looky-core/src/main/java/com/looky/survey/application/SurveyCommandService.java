@@ -14,7 +14,6 @@ import com.looky.survey.application.dto.SubmissionCompletedResult;
 import com.looky.survey.application.dto.SubmissionStartedResult;
 import com.looky.survey.application.dto.SubmitAnswersCommand;
 import com.looky.survey.application.dto.SurveyCreatedResult;
-import com.looky.survey.application.dto.SurveyResultResult;
 import com.looky.survey.application.dto.SurveyStatusResult;
 import com.looky.survey.domain.ResultStatus;
 import com.looky.survey.domain.SurveyStatus;
@@ -146,16 +145,6 @@ public class SurveyCommandService implements SurveyService {
                 remainingSeconds,
                 survey.surveyCode()
         );
-    }
-
-    @Override
-    public SurveyResultResult getSurveyResult(String surveyCode) {
-        SurveyRecord survey = surveyRepository.findBySurveyCode(surveyCode)
-                .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
-        if (survey.resultStatus() == ResultStatus.FAILED) {
-            throw new LookyException(ErrorCode.RESULT_GENERATION_FAILED);
-        }
-        throw new LookyException(ErrorCode.RESULT_NOT_READY);
     }
 
     private List<QuestionRecord> pickQuestions(SubmitterType submitterType) {

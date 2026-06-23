@@ -8,6 +8,7 @@ import com.looky.api.survey.dto.SubmissionStartedResponse;
 import com.looky.api.survey.dto.SubmitAnswersRequest;
 import com.looky.api.survey.dto.SurveyResultResponse;
 import com.looky.api.survey.dto.SurveyStatusResponse;
+import com.looky.result.application.ResultQueryService;
 import com.looky.survey.application.SurveyService;
 import com.looky.survey.application.dto.CreateSurveyCommand;
 import jakarta.validation.Valid;
@@ -26,9 +27,11 @@ import java.net.URI;
 public class SurveyController implements SurveyApi {
 
     private final SurveyService surveyService;
+    private final ResultQueryService resultQueryService;
 
-    public SurveyController(SurveyService surveyService) {
+    public SurveyController(SurveyService surveyService, ResultQueryService resultQueryService) {
         this.surveyService = surveyService;
+        this.resultQueryService = resultQueryService;
     }
 
     @Override
@@ -75,7 +78,7 @@ public class SurveyController implements SurveyApi {
     public ResponseEntity<ApiResponse<SurveyResultResponse>> getSurveyResult(@PathVariable String surveyCode) {
         return ResponseEntity.ok(ApiResponse.success(
                 "설문 결과를 조회했습니다.",
-                SurveyResultResponse.from(surveyService.getSurveyResult(surveyCode))
+                SurveyResultResponse.from(resultQueryService.getSurveyResult(surveyCode))
         ));
     }
 }
