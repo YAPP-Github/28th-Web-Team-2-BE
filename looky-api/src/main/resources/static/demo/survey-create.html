@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Looky Survey Create Demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #15191f;
+      --muted: #667085;
+      --line: #d9dee7;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --danger: #b42318;
+      --ok: #067647;
+      --code-bg: #101828;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(960px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .endpoint {
+      color: var(--muted);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 11px;
+      font-size: 15px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    input:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.22);
+      border-color: var(--accent);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.primary {
+      color: #fff;
+      background: var(--accent);
+    }
+
+    button.primary:hover {
+      background: var(--accent-dark);
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: #fff;
+      border-color: var(--line);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .meta {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .meta-row span:first-child {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .status-ok {
+      color: var(--ok);
+      font-weight: 800;
+    }
+
+    .status-fail {
+      color: var(--danger);
+      font-weight: 800;
+    }
+
+    pre {
+      min-height: 280px;
+      max-height: 560px;
+      overflow: auto;
+      margin: 0;
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: #eef4ff;
+      font-size: 13px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .share-link {
+      display: inline-block;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .share-link:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        width: min(100% - 24px, 960px);
+        padding: 20px 0;
+      }
+
+      header {
+        display: block;
+      }
+
+      .endpoint {
+        margin-top: 6px;
+        white-space: normal;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>설문 생성 API 데모</h1>
+      <div class="endpoint">POST /api/v1/surveys</div>
+    </div>
+    <a class="share-link" href="/demo/flow.html">플로우 데모</a>
+  </header>
+
+  <div class="layout">
+    <section>
+      <h2>요청</h2>
+      <form id="survey-form">
+        <label for="nickname">userNickname</label>
+        <input id="nickname" name="nickname" value="만두" autocomplete="off" maxlength="40">
+        <div class="actions">
+          <button class="primary" type="submit" id="submit-button">요청 보내기</button>
+          <button class="secondary" type="button" data-fill="  만두  ">trim 테스트</button>
+          <button class="secondary" type="button" data-fill="">빈 값</button>
+          <button class="secondary" type="button" data-fill="12345678901">11자</button>
+          <button class="secondary" type="button" data-fill="룩키!@#">특수문자</button>
+        </div>
+      </form>
+    </section>
+
+    <section>
+      <h2>응답</h2>
+      <div class="meta">
+        <div class="meta-row">
+          <span>HTTP</span>
+          <span id="http-status">-</span>
+        </div>
+        <div class="meta-row">
+          <span>Location</span>
+          <span id="location-header">-</span>
+        </div>
+        <div class="meta-row">
+          <span>shareUrl</span>
+          <span id="share-url">-</span>
+        </div>
+      </div>
+      <pre id="response-json">아직 요청하지 않았습니다.</pre>
+    </section>
+  </div>
+</main>
+
+<script>
+  const form = document.querySelector("#survey-form");
+  const nicknameInput = document.querySelector("#nickname");
+  const submitButton = document.querySelector("#submit-button");
+  const httpStatus = document.querySelector("#http-status");
+  const locationHeader = document.querySelector("#location-header");
+  const shareUrl = document.querySelector("#share-url");
+  const responseJson = document.querySelector("#response-json");
+
+  document.querySelectorAll("[data-fill]").forEach((button) => {
+    button.addEventListener("click", () => {
+      nicknameInput.value = button.dataset.fill;
+      nicknameInput.focus();
+    });
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    submitButton.disabled = true;
+    setPending();
+
+    try {
+      const response = await fetch("/api/v1/surveys", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userNickname: nicknameInput.value
+        })
+      });
+
+      const location = response.headers.get("Location") || "-";
+      const text = await response.text();
+      const body = parseJson(text);
+
+      httpStatus.textContent = `${response.status} ${response.statusText}`;
+      httpStatus.className = response.ok ? "status-ok" : "status-fail";
+      locationHeader.textContent = location;
+      renderShareUrl(body);
+      responseJson.textContent = JSON.stringify(body, null, 2);
+    } catch (error) {
+      httpStatus.textContent = "요청 실패";
+      httpStatus.className = "status-fail";
+      locationHeader.textContent = "-";
+      shareUrl.textContent = "-";
+      responseJson.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  function setPending() {
+    httpStatus.textContent = "요청 중";
+    httpStatus.className = "";
+    locationHeader.textContent = "-";
+    shareUrl.textContent = "-";
+    responseJson.textContent = "요청 중입니다.";
+  }
+
+  function parseJson(text) {
+    if (!text) {
+      return null;
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
+  }
+
+  function renderShareUrl(body) {
+    const url = body && body.payload && body.payload.shareUrl;
+    if (!url) {
+      shareUrl.textContent = "-";
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.className = "share-link";
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = url;
+    shareUrl.replaceChildren(link);
+  }
+</script>
+</body>
+</html>
