@@ -50,12 +50,11 @@ public class ResultGenerationService {
             try {
                 GeneratedResult generatedResult = resultGeneratorClient.generate(survey);
                 resultRepository.saveResult(survey.id(), generatedResult.toQuadrants(), now);
+                surveyRepository.updateResultStatus(survey.id(), ResultStatus.READY);
+                generatedCount++;
             } catch (RuntimeException exception) {
                 surveyRepository.updateResultStatus(survey.id(), ResultStatus.FAILED);
-                continue;
             }
-            surveyRepository.updateResultStatus(survey.id(), ResultStatus.READY);
-            generatedCount++;
         }
 
         return generatedCount;

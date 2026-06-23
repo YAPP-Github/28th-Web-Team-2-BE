@@ -134,6 +134,26 @@ class ResultGenerationServiceTest {
     }
 
     @Test
+    void generateReadyResultsMarksFailedAndContinuesWhenReadyStatusUpdateFails() {
+        SurveyRecord failedSurvey = survey(1L, "failcode0001", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
+        SurveyRecord successSurvey = survey(2L, "b91k2p8xq4z2", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
+        surveyRepository.save(failedSurvey);
+        surveyRepository.save(successSurvey);
+        submissionRepository.completedSelfSurveyIds.add(failedSurvey.id());
+        submissionRepository.completedSelfSurveyIds.add(successSurvey.id());
+        submissionRepository.completedPeerCounts.put(failedSurvey.id(), 3L);
+        submissionRepository.completedPeerCounts.put(successSurvey.id(), 3L);
+        surveyRepository.failReadyStatusSurveyId = failedSurvey.id();
+
+        int generatedCount = service.generateReadyResults();
+
+        assertEquals(1, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.FAILED), surveyRepository.statusUpdates.get(failedSurvey.id()));
+        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(successSurvey.id()));
+        assertTrue(resultRepository.resultsBySurveyId.containsKey(successSurvey.id()));
+    }
+
+    @Test
     void generatedResultRejectsMissingQuadrantImageUrl() {
         Map<ResultQuadrantType, String> imageUrls = completeImageUrls();
         imageUrls.remove(ResultQuadrantType.UNKNOWN);
@@ -190,6 +210,7 @@ class ResultGenerationServiceTest {
     private static final class FakeSurveyRepository implements SurveyRepository {
         private final Map<Long, SurveyRecord> surveys = new LinkedHashMap<>();
         private final Map<Long, List<ResultStatus>> statusUpdates = new LinkedHashMap<>();
+        private Long failReadyStatusSurveyId;
 
         void save(SurveyRecord survey) {
             surveys.put(survey.id(), survey);
@@ -225,6 +246,9 @@ class ResultGenerationServiceTest {
 
         @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
+            if (surveyId.equals(failReadyStatusSurveyId) && resultStatus == ResultStatus.READY) {
+                throw new IllegalStateException("ready status update failed");
+            }
             statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(resultStatus);
         }
     }
