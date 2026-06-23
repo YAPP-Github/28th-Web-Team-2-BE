@@ -176,6 +176,11 @@ class SurveyCommandServiceTest {
         }
 
         @Override
+        public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
+            throw new UnsupportedOperationException("not used in survey command tests");
+        }
+
+        @Override
         public void markCollecting(Long surveyId) {
             SurveyRecord survey = surveys.get(surveyId);
             surveys.put(surveyId, new SurveyRecord(
@@ -188,6 +193,11 @@ class SurveyCommandServiceTest {
                     survey.resultAvailableAt(),
                     survey.createdAt()
             ));
+        }
+
+        @Override
+        public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
+            throw new UnsupportedOperationException("not used in survey command tests");
         }
     }
 

@@ -148,7 +148,17 @@ class ResultQueryServiceTest {
         }
 
         @Override
+        public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
+            throw new UnsupportedOperationException("not used in result query tests");
+        }
+
+        @Override
         public void markCollecting(Long surveyId) {
+            throw new UnsupportedOperationException("not used in result query tests");
+        }
+
+        @Override
+        public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
     }
@@ -163,6 +173,16 @@ class ResultQueryServiceTest {
         @Override
         public Optional<ResultRecord> findBySurveyId(Long surveyId) {
             return Optional.ofNullable(results.get(surveyId));
+        }
+
+        @Override
+        public boolean existsBySurveyId(Long surveyId) {
+            return results.containsKey(surveyId);
+        }
+
+        @Override
+        public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+            throw new UnsupportedOperationException("not used in result query tests");
         }
     }
 }
