@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Looky Flow QA Demo</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --page: #ffffff;
+      --text: #111827;
+      --muted: #9ca3af;
+      --line: #e5e7eb;
+      --soft: #f3f4f6;
+      --blue: #3b82f6;
+      --blue-soft: #dbeafe;
+      --dark: #111827;
+      --kakao: #fee500;
+      --danger: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .phone {
+      width: min(100%, 390px);
+      min-height: 100dvh;
+      margin: 0 auto;
+      background: var(--page);
+      overflow: hidden;
+    }
+
+    .screen {
+      min-height: 100dvh;
+      display: none;
+      flex-direction: column;
+      padding: 24px 20px 32px;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    .logo {
+      color: var(--blue);
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .center {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .home {
+      justify-content: space-between;
+      padding-top: 56px;
+      text-align: center;
+    }
+
+    h1, h2, p {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 26px;
+      line-height: 1.28;
+      font-weight: 900;
+    }
+
+    h2 {
+      font-size: 22px;
+      line-height: 1.32;
+      font-weight: 850;
+    }
+
+    p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .mascot {
+      width: 220px;
+      aspect-ratio: 1 / 1.25;
+      margin: 48px auto 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 40px;
+      background: radial-gradient(circle, #dbeafe 0, #f3f4f6 64%, #fff 65%);
+      color: var(--blue);
+      font-size: 80px;
+      font-weight: 900;
+    }
+
+    .panel {
+      width: 100%;
+      display: grid;
+      gap: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      min-height: 56px;
+      border: 0;
+      border-radius: 18px;
+      padding: 0 16px;
+      background: var(--dark);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .btn:disabled {
+      background: #e5e7eb;
+      color: #fff;
+      cursor: not-allowed;
+    }
+
+    .btn.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .btn.kakao {
+      background: var(--kakao);
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .link {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      text-decoration: underline;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .top {
+      padding-top: 40px;
+    }
+
+    .input {
+      width: 100%;
+      height: 60px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 0 16px;
+      font-size: 16px;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+    }
+
+    .error {
+      min-height: 22px;
+      color: var(--danger);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: -8px;
+    }
+
+    .back {
+      width: 34px;
+      height: 34px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    .progress {
+      height: 7px;
+      flex: 1;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--soft);
+    }
+
+    .bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: var(--blue);
+      transition: width 0.18s ease;
+    }
+
+    .question-head {
+      margin-top: 42px;
+      text-align: center;
+      display: grid;
+      gap: 10px;
+    }
+
+    .caption {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .answers {
+      list-style: none;
+      padding: 0;
+      margin: 28px 0 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .answer {
+      width: 100%;
+      min-height: 64px;
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      background: #fff;
+      color: #4b5563;
+      text-align: left;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.4;
+      box-shadow: inset 0 0 0 1px var(--line);
+      cursor: pointer;
+    }
+
+    .answer:active {
+      background: var(--dark);
+      color: #fff;
+    }
+
+    .loading {
+      display: grid;
+      place-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 3px solid var(--soft);
+      border-top-color: var(--blue);
+      border-radius: 999px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .card {
+      border-radius: 22px;
+      background: var(--soft);
+      padding: 22px;
+    }
+
+    .square {
+      aspect-ratio: 1;
+      width: 100%;
+      border-radius: 22px;
+      background: var(--soft);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .row > * {
+      flex: 1;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: -24px -20px 16px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #f9fafb;
+    }
+
+    .tab {
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 8px;
+      background: #fff;
+      color: #6b7280;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: min(360px, calc(100% - 32px));
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: var(--dark);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      display: none;
+      z-index: 5;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .quad {
+      aspect-ratio: 1;
+      border-radius: 18px;
+      background: var(--soft);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 8px;
+      padding: 0 9px;
+      background: var(--blue-soft);
+      color: #374151;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .api-box {
+      max-height: 130px;
+      overflow: auto;
+      border-radius: 12px;
+      padding: 12px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .phone {
+        min-height: 844px;
+        height: 844px;
+        border-radius: 40px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+      }
+
+      .screen {
+        min-height: 844px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="phone">
+  <section class="screen home active" data-screen="home">
+    <header>
+      <p class="caption">또래 인식 서비스</p>
+      <div class="logo">looky</div>
+    </header>
+    <div>
+      <div class="mascot">?</div>
+      <h1>친구들이 본 나를<br>인생네컷으로 발견하다</h1>
+      <p style="margin-top: 12px;">친구들에게 설문을 보내면<br>그 친구들이 찍어준 네 컷이 완성돼요</p>
+    </div>
+    <div class="panel">
+      <button class="btn" data-go="nickname">시작하기</button>
+      <button class="link" data-go="nickname">이미 만들고 있다면 이어보기</button>
+    </div>
+  </section>
+
+  <section class="screen top" data-screen="nickname">
+    <div class="logo">looky</div>
+    <div style="margin-top: 32px;">
+      <h2>당신의 이름을 알려주세요</h2>
+      <p style="margin-top: 8px;">친구에게 보여지는 설문에 사용돼요<br>누구인지 알아볼 수 있다면 별명도 괜찮아요</p>
+    </div>
+    <div style="margin-top: 32px;">
+      <input id="nickname" class="input" maxlength="16" placeholder="김루키" aria-label="닉네임">
+      <div id="nickname-error" class="error" style="margin-top: 8px;"></div>
+    </div>
+    <div class="spacer"></div>
+    <button id="nickname-submit" class="btn" disabled>확인</button>
+  </section>
+
+  <section class="screen" data-screen="self-survey">
+    <div class="progress-wrap">
+      <button class="back" type="button" data-back>&larr;</button>
+      <div class="progress"><div id="self-bar" class="bar"></div></div>
+    </div>
+    <div class="question-head">
+      <p class="caption">나에 대해</p>
+      <p id="self-count" class="caption"></p>
+      <h2 id="self-question"></h2>
+    </div>
+    <ul id="self-answers" class="answers"></ul>
+  </section>
+
+  <section class="screen center" data-screen="creating">
+    <div class="loading">
+      <div class="spinner"></div>
+      <h2>공유 링크를 만들고 있어요</h2>
+      <p>SELF 설문이 끝나면 서버에 설문 생성을 요청합니다.</p>
+      <pre id="api-log" class="api-box"></pre>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="share">
+    <div class="tabs" data-tabs></div>
+    <div class="logo">looky</div>
+    <h2 style="margin-top: 24px;">잠깐! 지금 당장 링크를 복사해서<br>친구들에게 공유해요</h2>
+    <p id="share-desc" style="margin-top: 12px;"></p>
+    <div class="square" style="margin-top: 24px;">[GIF]<br>인스타 스토리에 링크 붙여넣기</div>
+    <div style="margin-top: 24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="caption" id="response-count">모인 응답 0 / 3</span>
+        <span class="caption" style="color:var(--blue);">18시간 남음</span>
+      </div>
+      <div class="progress" style="margin-top: 8px;"><div id="response-bar" class="bar"></div></div>
+    </div>
+    <pre id="share-api" class="api-box" style="margin-top: 16px;"></pre>
+    <div class="spacer"></div>
+    <div class="panel">
+      <button id="copy-link" class="btn"></button>
+      <div class="row">
+        <button class="btn secondary" data-view="respondent">친구 화면 열기</button>
+        <button class="btn kakao" id="kakao-button">카카오톡 공유</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="respondent-intro">
+    <div class="tabs" data-tabs></div>
+    <div class="logo">looky</div>
+    <div style="margin-top: 32px;display:flex;align-items:center;gap:8px;">
+      <span id="respondent-name" class="chip"></span>
+      <h2>님의 페이지</h2>
+    </div>
+    <p style="margin-top: 12px;">친구들이 보는 나를 모아,<br>나의 숨은 모습을 발견해요!</p>
+    <div class="square" style="margin-top: 28px;">[GIF]<br>3, 2, 1 카운트하는 캐릭터</div>
+    <div class="spacer"></div>
+    <p id="respondent-desc" style="text-align:center;margin-bottom:16px;"></p>
+    <button class="btn" data-start-peer>설문 시작하기</button>
+  </section>
+
+  <section class="screen" data-screen="peer-survey">
+    <div class="progress-wrap">
+      <button class="back" type="button" data-view="respondent">&larr;</button>
+      <div class="progress"><div id="peer-bar" class="bar"></div></div>
+    </div>
+    <div class="question-head">
+      <p id="peer-label" class="caption"></p>
+      <p id="peer-count" class="caption"></p>
+      <h2 id="peer-question"></h2>
+    </div>
+    <ul id="peer-answers" class="answers"></ul>
+  </section>
+
+  <section class="screen" data-screen="peer-done">
+    <div class="tabs" data-tabs></div>
+    <div style="padding-top: 56px;text-align:center;">
+      <h1>응답 완료!</h1>
+      <p id="peer-done-desc" style="margin-top: 12px;"></p>
+    </div>
+    <div class="grid2" style="margin-top: 32px;">
+      <div class="quad"><span class="chip">모두가 아는 나</span></div>
+      <div class="quad"><span class="chip">친구만 아는 나</span></div>
+      <div class="quad"><span class="chip">나만 아는 나</span></div>
+      <div class="quad"><span class="chip">아직 모르는 나</span></div>
+    </div>
+    <div class="spacer"></div>
+    <p style="text-align:center;margin-bottom:12px;">남이 본 내 모습이 궁금하다면?</p>
+    <button class="btn" data-go="nickname">나도 만들기</button>
+  </section>
+
+  <section class="screen" data-screen="result-ready">
+    <div class="tabs" data-tabs></div>
+    <h2 style="text-align:center;margin-top: 40px;">송이님의 네컷이 완성됐어요</h2>
+    <p style="text-align:center;margin-top: 12px;">5명의 친구들이<br>응답해준 결과 보러 갈까요?</p>
+    <div class="square" style="margin-top: 32px;">결과 대표 이미지</div>
+    <div class="spacer"></div>
+    <button class="btn" data-result-open>네컷 보기</button>
+  </section>
+
+  <section class="screen" data-screen="result-detail">
+    <div class="tabs" data-tabs></div>
+    <div class="logo">looky</div>
+    <div class="grid2" style="margin-top: 18px;">
+      <div class="quad"><span class="chip">모두가 아는 나</span></div>
+      <div class="quad"><span class="chip">친구만 아는 나</span></div>
+      <div class="quad"><span class="chip">나만 아는 나</span></div>
+      <div class="quad"><span class="chip">아직 모르는 나</span></div>
+    </div>
+    <h2 style="text-align:center;margin-top: 20px;">마음을 잘 여는 송이</h2>
+    <p style="text-align:center;margin-top: 6px;">2025.06.19</p>
+    <section class="card" style="margin-top: 22px;">
+      <p style="color:var(--blue);font-weight:800;">+ 종합 분석</p>
+      <p style="margin-top: 8px;color:#374151;">송이님은 열린 나가 절반을 차지할 만큼 자신을 자연스럽게 드러내는 사람이에요.</p>
+    </section>
+    <div class="spacer"></div>
+    <div class="row">
+      <button class="btn secondary" id="copy-result">복사</button>
+      <button class="btn kakao">카톡 공유</button>
+    </div>
+  </section>
+
+  <section class="screen center" data-screen="not-enough">
+    <div class="tabs" data-tabs></div>
+    <div class="square" style="width: 160px;">캐릭터</div>
+    <h2 style="margin-top: 28px;">아직 친구가 충분히 모이지 않았어요</h2>
+    <p id="not-enough-desc" style="margin-top: 12px;"></p>
+    <div class="spacer"></div>
+    <button class="btn" data-view="share">다시하기</button>
+  </section>
+
+  <section class="screen center" data-screen="expired">
+    <div class="tabs" data-tabs></div>
+    <div class="square" style="width: 160px;">안개<br>물음표</div>
+    <h2 style="margin-top: 28px;">만료됐거나 없는 링크예요</h2>
+    <p style="margin-top: 12px;">링크가 만료됐거나 잘못된 주소예요.<br>직접 나만의 네컷을 만들어볼까요?</p>
+    <div class="spacer"></div>
+    <button class="btn" data-go="home">내 것 만들기</button>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  const questions = [
+    {
+      id: "q1",
+      scenario: "단톡방에 “지금 당장 1박2일 무계획 여행 ㄱ?” 나는?",
+      choices: ["안 가. 계획 없는 여행은 상상만 해도 멀미나", "숙소랑 일정부터 짜오면 그때 생각해볼게", "갈까 말까.. 한 명이라도 더 가면 같이 갈게", "오 좋다, 칫솔만 챙기면 되겠다", "(이미 신발 신고 현관에 서서) 어디 가면 돼?"]
+    },
+    {
+      id: "q2",
+      scenario: "처음 가는 모임에 도착했다. 문을 열기 직전 나는?",
+      choices: ["심호흡부터. 아는 사람 있나 빠르게 스캔", "조용히 들어가 구석 자리에 앉는다", "일단 인사하고 분위기를 살핀다", "먼저 말 걸며 자리 잡는다", "“안녕하세요!” 하고 들어가 바로 중심에 선다"]
+    },
+    {
+      id: "q3",
+      scenario: "친구가 갑자기 고민을 털어놨다. 내 첫 반응은?",
+      choices: ["해결책부터 정리해서 알려준다", "비슷한 내 경험을 들려준다", "“그랬구나” 하고 끝까지 들어준다", "같이 화내거나 같이 운다", "일단 맛있는 거 먹으러 가자고 한다"]
+    },
+    {
+      id: "q4",
+      scenario: "과제 마감 3일 전, 나의 상태는?",
+      choices: ["이미 다 끝내고 검토 중", "계획표대로 차근차근 진행 중", "오늘부터 시작하면 충분하지", "내일의 내가 알아서 하겠지", "마감 직전 폭발력을 믿는다"]
+    },
+    {
+      id: "q5",
+      scenario: "여행지에서 길을 잃었다. 나는?",
+      choices: ["지도 앱을 켜고 최적 경로를 계산한다", "근처 사람에게 길을 물어본다", "헤매는 것도 여행이라며 일단 걷는다", "예상 못 한 골목을 발견해 신난다", "사진부터 찍고 본다"]
+    },
+    {
+      id: "q6",
+      scenario: "새로운 취미를 추천받았다. 나는?",
+      choices: ["후기부터 꼼꼼히 찾아본다", "일단 한 번만 체험해본다", "친구랑 같이 하면 시작한다", "장비부터 질러놓고 본다", "“오늘 당장!” 하고 등록한다"]
+    },
+    {
+      id: "q7",
+      scenario: "단톡방이 조용하다. 나는?",
+      choices: ["굳이 안 깨운다, 조용한 게 편하다", "필요한 공지만 올린다", "짤 하나 던져 분위기를 본다", "안부를 물으며 대화를 연다", "“다들 뭐해?” 하고 판을 깐다"]
+    },
+    {
+      id: "q8",
+      scenario: "오랜만의 주말, 약속이 모두 취소됐다. 나는?",
+      choices: ["오히려 좋아, 혼자만의 시간 만끽", "밀린 집안일과 정리를 한다", "보고 싶던 영화나 정주행", "즉흥적으로 나갈 곳을 찾는다", "다른 친구에게 바로 연락 돌린다"]
+    }
+  ];
+
+  const state = {
+    nickname: "",
+    surveyCode: "",
+    shareUrl: "",
+    createdResponse: null,
+    selfIndex: 0,
+    peerIndex: 0,
+    peerCount: 0
+  };
+
+  const screens = document.querySelectorAll(".screen");
+  const nickname = document.querySelector("#nickname");
+  const nicknameSubmit = document.querySelector("#nickname-submit");
+  const nicknameError = document.querySelector("#nickname-error");
+  const toast = document.querySelector("#toast");
+
+  document.querySelectorAll("[data-go]").forEach((button) => {
+    button.addEventListener("click", () => show(button.dataset.go));
+  });
+
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => setView(button.dataset.view));
+  });
+
+  document.querySelector("[data-back]").addEventListener("click", () => {
+    if (state.selfIndex > 0) {
+      state.selfIndex -= 1;
+      renderSurvey("self");
+      return;
+    }
+    show("nickname");
+  });
+
+  nickname.addEventListener("input", validateNickname);
+  nickname.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !nicknameSubmit.disabled) {
+      startSelfSurvey();
+    }
+  });
+  nicknameSubmit.addEventListener("click", startSelfSurvey);
+
+  document.querySelector("[data-start-peer]").addEventListener("click", () => {
+    state.peerIndex = 0;
+    show("peer-survey");
+    renderSurvey("peer");
+  });
+
+  document.querySelector("[data-result-open]").addEventListener("click", () => show("result-detail"));
+  document.querySelector("#copy-link").addEventListener("click", () => copyText(state.shareUrl || location.href));
+  document.querySelector("#copy-result").addEventListener("click", () => copyText(location.href));
+  document.querySelector("#kakao-button").addEventListener("click", () => showToast("카카오톡 공유는 QA 데모에서 링크 복사로 대체합니다."));
+
+  renderTabs();
+  validateNickname();
+
+  function show(name) {
+    screens.forEach((screen) => {
+      screen.classList.toggle("active", screen.dataset.screen === name);
+    });
+    if (name === "self-survey") renderSurvey("self");
+    if (name === "peer-survey") renderSurvey("peer");
+  }
+
+  function validateNickname() {
+    const value = nickname.value.trim();
+    const invalid = value.length === 0 || value.length > 10;
+    nicknameSubmit.disabled = invalid;
+    nicknameError.textContent = value.length > 10 ? "백엔드 정책 기준 10자 이하로 입력해주세요" : "";
+  }
+
+  function startSelfSurvey() {
+    const value = nickname.value.trim();
+    if (!value || value.length > 10) {
+      validateNickname();
+      return;
+    }
+    state.nickname = value;
+    state.selfIndex = 0;
+    show("self-survey");
+  }
+
+  function renderSurvey(type) {
+    const index = type === "self" ? state.selfIndex : state.peerIndex;
+    const question = questions[index];
+    const includeNeutral = type === "self";
+    const choices = includeNeutral ? [...question.choices, "잘 모르겠어요"] : question.choices;
+    const bar = document.querySelector(type === "self" ? "#self-bar" : "#peer-bar");
+    const count = document.querySelector(type === "self" ? "#self-count" : "#peer-count");
+    const title = document.querySelector(type === "self" ? "#self-question" : "#peer-question");
+    const list = document.querySelector(type === "self" ? "#self-answers" : "#peer-answers");
+
+    bar.style.width = `${Math.round((index + 1) / questions.length * 100)}%`;
+    count.textContent = `${index + 1} / ${questions.length}`;
+    title.textContent = question.scenario;
+    list.replaceChildren(...choices.map((choice) => {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.className = "answer";
+      button.type = "button";
+      button.textContent = choice;
+      button.addEventListener("click", () => answer(type));
+      item.append(button);
+      return item;
+    }));
+
+    if (type === "peer") {
+      document.querySelector("#peer-label").textContent = `${state.nickname || "민규"}에 대해`;
+    }
+  }
+
+  function answer(type) {
+    if (type === "self") {
+      if (state.selfIndex + 1 < questions.length) {
+        state.selfIndex += 1;
+        renderSurvey("self");
+        return;
+      }
+      createSurvey();
+      return;
+    }
+
+    if (state.peerIndex + 1 < questions.length) {
+      state.peerIndex += 1;
+      renderSurvey("peer");
+      return;
+    }
+    state.peerCount += 1;
+    renderPeerDone();
+    show("peer-done");
+  }
+
+  async function createSurvey() {
+    show("creating");
+    const apiLog = document.querySelector("#api-log");
+    apiLog.textContent = "POST /api/v1/surveys";
+    try {
+      const response = await fetch("/api/v1/surveys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userNickname: state.nickname })
+      });
+      const body = await response.json();
+      state.createdResponse = body;
+      state.surveyCode = body && body.payload ? body.payload.surveyCode : "";
+      state.shareUrl = body && body.payload ? body.payload.shareUrl : "";
+      apiLog.textContent = JSON.stringify({ httpStatus: response.status, body }, null, 2);
+      if (!response.ok) {
+        showToast("설문 생성에 실패했습니다.");
+        show("nickname");
+        return;
+      }
+      renderShare();
+      show("share");
+    } catch (error) {
+      apiLog.textContent = error instanceof Error ? error.message : String(error);
+      showToast("서버 요청에 실패했습니다.");
+      show("nickname");
+    }
+  }
+
+  function renderShare() {
+    document.querySelector("#share-desc").innerHTML = `24시간 뒤에 ${state.nickname}님의 링크로 돌아오면,<br>친구들의 시선을 보여드릴게요<br>단, 3명 이상 모아오세요~~`;
+    document.querySelector("#copy-link").textContent = `${state.nickname}의 링크 복사`;
+    document.querySelector("#response-count").textContent = `모인 응답 ${state.peerCount} / 3`;
+    document.querySelector("#response-bar").style.width = `${Math.min(state.peerCount / 3, 1) * 100}%`;
+    document.querySelector("#share-api").textContent = JSON.stringify(state.createdResponse, null, 2);
+    renderTabs();
+  }
+
+  function renderPeerDone() {
+    document.querySelector("#peer-done-desc").innerHTML = `소중한 응답으로<br>${state.nickname}님의 모습을 그리고 있어요`;
+  }
+
+  function setView(view) {
+    if (view === "share") {
+      renderShare();
+      show("share");
+      return;
+    }
+    if (view === "respondent") {
+      document.querySelector("#respondent-name").textContent = state.nickname || "민규";
+      document.querySelector("#respondent-desc").innerHTML = `${state.nickname || "민규"}님에 대한 설문을 해주면<br>숨은 모습을 함께 그릴 수 있어요!`;
+      show("respondent-intro");
+      return;
+    }
+    if (view === "result") {
+      show("result-ready");
+      return;
+    }
+    if (view === "retry") {
+      document.querySelector("#not-enough-desc").innerHTML = `${state.peerCount}명이 응답했어요. 3명이 모이면<br>${state.nickname || "민규"}님의 네컷을 만들 수 있어요`;
+      show("not-enough");
+      return;
+    }
+    if (view === "expired") {
+      show("expired");
+    }
+  }
+
+  function renderTabs() {
+    document.querySelectorAll("[data-tabs]").forEach((tabs) => {
+      tabs.replaceChildren(...[
+        ["share", "공유(주인공)"],
+        ["respondent", "참여자"],
+        ["result", "결과"],
+        ["retry", "미달"],
+        ["expired", "만료"]
+      ].map(([view, label]) => {
+        const button = document.createElement("button");
+        button.className = "tab";
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", () => setView(view));
+        return button;
+      }));
+    });
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("링크가 복사됐어요.");
+    } catch {
+      showToast(text);
+    }
+  }
+
+  function showToast(message) {
+    toast.textContent = message;
+    toast.style.display = "block";
+    window.clearTimeout(showToast.timer);
+    showToast.timer = window.setTimeout(() => {
+      toast.style.display = "none";
+    }, 2200);
+  }
+</script>
+</body>
+</html>
