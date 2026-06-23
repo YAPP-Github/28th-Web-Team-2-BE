@@ -17,7 +17,7 @@ public record GeneratedResult(
             if (imageUrl == null || imageUrl.isBlank()) {
                 throw new IllegalArgumentException("Result quadrant image url is required: " + type);
             }
-            quadrants.add(new ResultQuadrantRecord(type, imageUrl));
+            quadrants.add(new ResultQuadrantRecord(type, imageUrl, null, null));
         }
         return quadrants;
     }

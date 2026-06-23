@@ -1,7 +1,10 @@
 package com.looky.question.persistence;
 
+import com.looky.question.domain.TraitCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -26,8 +29,9 @@ public class QuestionJpaEntity {
     @Column(name = "question_type", nullable = false, length = 40)
     private String questionType;
 
-    @Column(name = "trait_code", length = 40)
-    private String traitCode;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trait_code", nullable = false, length = 40)
+    private TraitCode traitCode;
 
     @Column(name = "active", nullable = false)
     private boolean active;
@@ -51,5 +55,9 @@ public class QuestionJpaEntity {
 
     public String getContentPeer() {
         return contentPeer;
+    }
+
+    public TraitCode getTraitCode() {
+        return traitCode;
     }
 }

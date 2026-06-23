@@ -230,6 +230,12 @@ class SurveyControllerTest {
                                 "BLIND", "https://cdn.looky.my/results/b91/blind.png",
                                 "HIDDEN", "https://cdn.looky.my/results/b91/hidden.png",
                                 "UNKNOWN", "https://cdn.looky.my/results/b91/unknown.png"
+                        ),
+                        Map.of(
+                                "OPEN", "서로 알고 있는 강점",
+                                "BLIND", "타인이 먼저 발견하는 특성",
+                                "HIDDEN", "혼자 알고 있는 내면",
+                                "UNKNOWN", "아직 발견되지 않은 가능성"
                         )
                 ));
 
@@ -243,6 +249,8 @@ class SurveyControllerTest {
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.BLIND").value("https://cdn.looky.my/results/b91/blind.png"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.HIDDEN").value("https://cdn.looky.my/results/b91/hidden.png"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.UNKNOWN").value("https://cdn.looky.my/results/b91/unknown.png"))
+                .andExpect(jsonPath("$.payload.quadrantInterpretations.OPEN").value("서로 알고 있는 강점"))
+                .andExpect(jsonPath("$.payload.quadrantInterpretations.BLIND").value("타인이 먼저 발견하는 특성"))
                 .andExpect(jsonPath("$.payload.mainImageUrl").doesNotExist());
     }
 

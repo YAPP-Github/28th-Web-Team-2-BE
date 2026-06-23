@@ -2,6 +2,7 @@ package com.looky.result.client;
 
 import com.looky.result.application.GeneratedResult;
 import com.looky.result.application.ResultGeneratorClient;
+import com.looky.result.application.ResultGenerationRequest;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.survey.application.SurveyRecord;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,8 @@ public class FakeResultGeneratorClient implements ResultGeneratorClient {
     private static final String CDN_BASE_URL = "https://cdn.looky.my/results";
 
     @Override
-    public GeneratedResult generate(SurveyRecord survey) {
+    public GeneratedResult generate(ResultGenerationRequest request) {
+        SurveyRecord survey = request.survey();
         Map<ResultQuadrantType, String> imageUrls = new EnumMap<>(ResultQuadrantType.class);
         imageUrls.put(ResultQuadrantType.OPEN, imageUrl(survey.surveyCode(), "open"));
         imageUrls.put(ResultQuadrantType.BLIND, imageUrl(survey.surveyCode(), "blind"));

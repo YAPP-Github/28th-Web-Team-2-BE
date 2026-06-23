@@ -2,10 +2,12 @@ package com.looky.question.persistence;
 
 import com.looky.question.application.QuestionRecord;
 import com.looky.question.application.QuestionRepository;
+import com.looky.question.domain.TraitCode;
 import com.looky.submission.domain.SubmitterType;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -25,10 +27,13 @@ public class QuestionRepositoryImpl implements QuestionRepository {
     }
 
     @Override
-    public List<QuestionRecord> findRandomActiveQuestions(int count, SubmitterType submitterType) {
-        List<QuestionJpaEntity> questions = questionJpaRepository.findByActiveTrueOrderByIdAsc();
-        Collections.shuffle(questions);
-        List<QuestionJpaEntity> selectedQuestions = questions.stream().limit(count).toList();
+    public List<QuestionRecord> findRandomActiveQuestionsByTrait(int countPerTrait, SubmitterType submitterType) {
+        List<QuestionJpaEntity> selectedQuestions = new ArrayList<>();
+        for (TraitCode traitCode : TraitCode.values()) {
+            List<QuestionJpaEntity> questions = new ArrayList<>(questionJpaRepository.findByActiveTrueAndTraitCode(traitCode));
+            Collections.shuffle(questions);
+            selectedQuestions.addAll(questions.stream().limit(countPerTrait).toList());
+        }
         List<Long> questionIds = selectedQuestions.stream().map(QuestionJpaEntity::getId).toList();
         Map<Long, List<AnswerOptionJpaEntity>> optionsByQuestionId = answerOptionJpaRepository
                 .findByQuestion_IdInAndActiveTrueOrderByQuestion_IdAscSequenceAsc(questionIds)
@@ -43,6 +48,7 @@ public class QuestionRepositoryImpl implements QuestionRepository {
     private QuestionRecord toRecord(QuestionJpaEntity question, List<AnswerOptionJpaEntity> options, SubmitterType submitterType) {
         return new QuestionRecord(
                 question.getId(),
+                question.getTraitCode(),
                 submitterType == SubmitterType.SELF ? question.getContentSelf() : question.getContentPeer(),
                 options.stream()
                         .sorted(Comparator.comparingInt(AnswerOptionJpaEntity::getSequence))

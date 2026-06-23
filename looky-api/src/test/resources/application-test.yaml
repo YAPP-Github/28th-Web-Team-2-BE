@@ -1,0 +1,11 @@
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    defer-datasource-initialization: true
+    hibernate:
+      ddl-auto: create-drop
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:db/data.sql

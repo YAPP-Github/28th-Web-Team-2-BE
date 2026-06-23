@@ -40,6 +40,9 @@ public class SurveyJpaEntity {
     @Column(name = "result_status", nullable = false, length = 64)
     private ResultStatus resultStatus;
 
+    @Column(name = "result_generation_attempt_count", nullable = false)
+    private int resultGenerationAttemptCount;
+
     @Column(name = "required_peer_submission_count", nullable = false)
     private int requiredPeerSubmissionCount;
 
@@ -66,6 +69,7 @@ public class SurveyJpaEntity {
         this.surveyCode = surveyCode;
         this.surveyStatus = SurveyStatus.DRAFT;
         this.resultStatus = ResultStatus.WAITING_SELF_RESPONSE;
+        this.resultGenerationAttemptCount = 0;
         this.requiredPeerSubmissionCount = requiredPeerSubmissionCount;
         this.resultAvailableAt = resultAvailableAt;
         this.createdAt = now;
@@ -113,6 +117,10 @@ public class SurveyJpaEntity {
 
     public ResultStatus getResultStatus() {
         return resultStatus;
+    }
+
+    public int getResultGenerationAttemptCount() {
+        return resultGenerationAttemptCount;
     }
 
     public int getRequiredPeerSubmissionCount() {

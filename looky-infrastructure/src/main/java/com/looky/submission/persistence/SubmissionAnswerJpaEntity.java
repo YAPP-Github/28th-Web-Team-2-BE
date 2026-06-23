@@ -47,4 +47,16 @@ public class SubmissionAnswerJpaEntity {
         this.answerContentSnapshot = answerContentSnapshot;
         this.createdAt = createdAt;
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public SubmissionQuestionJpaEntity getSubmissionQuestion() {
+        return submissionQuestion;
+    }
+
+    public String getAnswerContentSnapshot() {
+        return answerContentSnapshot;
+    }
 }

@@ -3,6 +3,14 @@ looky:
     result-open-delay-hours: 24
   result-generation:
     fixed-delay: 60000
+    max-attempts: 3
+    narrative-model: gpt-5.4-mini
+    image-model: gpt-image-2
+    image-quality: low
+    presigned-url-ttl: 24h
+    s3:
+      bucket: app-contents-dev
+      region: ap-northeast-2
 
 spring:
   datasource:
@@ -11,13 +19,11 @@ spring:
     username: sa
     password:
   jpa:
-    defer-datasource-initialization: true
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
-  sql:
-    init:
-      mode: always
-      data-locations: classpath:db/data.sql
+  flyway:
+    enabled: true
+    locations: classpath:db/migration

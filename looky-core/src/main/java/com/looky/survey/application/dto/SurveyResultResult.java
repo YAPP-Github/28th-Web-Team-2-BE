@@ -7,6 +7,10 @@ import java.util.Map;
 public record SurveyResultResult(
         String surveyCode,
         ResultStatus resultStatus,
-        Map<String, String> quadrantImageUrls
+        Map<String, String> quadrantImageUrls,
+        Map<String, String> quadrantInterpretations
 ) {
+    public SurveyResultResult(String surveyCode, ResultStatus resultStatus, Map<String, String> quadrantImageUrls) {
+        this(surveyCode, resultStatus, quadrantImageUrls, null);
+    }
 }

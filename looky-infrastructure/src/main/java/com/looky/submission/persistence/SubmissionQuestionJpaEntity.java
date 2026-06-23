@@ -65,6 +65,10 @@ public class SubmissionQuestionJpaEntity {
         return question.getId();
     }
 
+    public QuestionJpaEntity getQuestion() {
+        return question;
+    }
+
     public int getSequence() {
         return sequence;
     }

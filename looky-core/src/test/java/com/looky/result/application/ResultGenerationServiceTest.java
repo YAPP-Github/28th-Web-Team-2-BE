@@ -32,11 +32,16 @@ class ResultGenerationServiceTest {
     private final FakeSubmissionRepository submissionRepository = new FakeSubmissionRepository();
     private final FakeResultRepository resultRepository = new FakeResultRepository(surveyRepository);
     private final FakeResultGeneratorClient resultGeneratorClient = new FakeResultGeneratorClient();
+    private final FakeResultGenerationSourceReader sourceReader = new FakeResultGenerationSourceReader();
+    private final FakeResultNarrativeClient narrativeClient = new FakeResultNarrativeClient();
     private final ResultGenerationService service = new ResultGenerationService(
             surveyRepository,
             submissionRepository,
             resultRepository,
             resultGeneratorClient,
+            sourceReader,
+            narrativeClient,
+            new ResultGenerationPolicy(3),
             clock
     );
 
@@ -55,6 +60,29 @@ class ResultGenerationServiceTest {
         ResultRecord result = resultRepository.resultsBySurveyId.get(survey.id());
         assertEquals(4, result.quadrants().size());
         assertEquals("https://cdn.looky.my/results/b91k2p8xq4z2/open.png", imageUrl(result, ResultQuadrantType.OPEN));
+    }
+
+    @Test
+    void generateReadyResultsPersistsNarrativeBeforeGeneratingImages() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
+        narrativeClient.narrative = new ResultNarrative(
+                Map.of(101L, List.of("호기심 많은")),
+                Map.of(
+                        ResultQuadrantType.OPEN, new ResultNarrative.QuadrantNarrative("공유 강점", "open"),
+                        ResultQuadrantType.BLIND, new ResultNarrative.QuadrantNarrative("타인이 보는 강점", "blind"),
+                        ResultQuadrantType.HIDDEN, new ResultNarrative.QuadrantNarrative("내면", "hidden"),
+                        ResultQuadrantType.UNKNOWN, new ResultNarrative.QuadrantNarrative("가능성", "unknown")
+                )
+        );
+
+        service.generateReadyResults();
+
+        assertEquals(List.of("호기심 많은"), resultRepository.savedNarrative.adjectivesBySubmissionAnswerId().get(101L));
+        assertEquals("타인이 보는 강점", resultRepository.savedNarrative.quadrants().get(ResultQuadrantType.BLIND).interpretation());
     }
 
     @Test
@@ -99,8 +127,8 @@ class ResultGenerationServiceTest {
     }
 
     @Test
-    void generateReadyResultsSkipsWhenResultAlreadyExists() {
-        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
+    void generateReadyResultsReusesExistingNarrativeOnRetry() {
+        SurveyRecord survey = survey(ResultStatus.FAILED, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
@@ -108,8 +136,8 @@ class ResultGenerationServiceTest {
 
         int generatedCount = service.generateReadyResults();
 
-        assertEquals(0, generatedCount);
-        assertTrue(surveyRepository.statusUpdates.isEmpty());
+        assertEquals(1, generatedCount);
+        assertEquals(0, narrativeClient.calls);
     }
 
     @Test
@@ -171,6 +199,40 @@ class ResultGenerationServiceTest {
     }
 
     @Test
+    void generateReadyResultsRetriesFailedResultWhenAttemptsRemain() {
+        SurveyRecord survey = survey(ResultStatus.FAILED, OffsetDateTime.now(clock).minusMinutes(1));
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+
+        int generatedCount = service.generateReadyResults();
+
+        assertEquals(1, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(survey.id()));
+        assertTrue(resultRepository.resultsBySurveyId.containsKey(survey.id()));
+    }
+
+    @Test
+    void generateReadyResultsDoesNotRetryFailedResultWhenAttemptsAreExhausted() {
+        SurveyRecord survey = survey(
+                1L,
+                "b91k2p8xq4z2",
+                ResultStatus.FAILED,
+                OffsetDateTime.now(clock).minusMinutes(1),
+                3
+        );
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+
+        int generatedCount = service.generateReadyResults();
+
+        assertEquals(0, generatedCount);
+        assertTrue(surveyRepository.statusUpdates.isEmpty());
+        assertFalse(resultRepository.resultsBySurveyId.containsKey(survey.id()));
+    }
+
+    @Test
     void generatedResultRejectsMissingQuadrantImageUrl() {
         Map<ResultQuadrantType, String> imageUrls = completeImageUrls();
         imageUrls.remove(ResultQuadrantType.UNKNOWN);
@@ -203,12 +265,23 @@ class ResultGenerationServiceTest {
     }
 
     private SurveyRecord survey(Long id, String surveyCode, ResultStatus resultStatus, OffsetDateTime resultAvailableAt) {
+        return survey(id, surveyCode, resultStatus, resultAvailableAt, 0);
+    }
+
+    private SurveyRecord survey(
+            Long id,
+            String surveyCode,
+            ResultStatus resultStatus,
+            OffsetDateTime resultAvailableAt,
+            int resultGenerationAttemptCount
+    ) {
         return new SurveyRecord(
                 id,
                 "만두",
                 surveyCode,
                 SurveyStatus.COLLECTING,
                 resultStatus,
+                resultGenerationAttemptCount,
                 3,
                 resultAvailableAt,
                 OffsetDateTime.now(clock).minusDays(1)
@@ -251,7 +324,9 @@ class ResultGenerationServiceTest {
                     .filter(survey -> List.of(
                             ResultStatus.WAITING_SELF_RESPONSE,
                             ResultStatus.COLLECTING_PEER_RESPONSES,
-                            ResultStatus.WAITING_RESULT_OPEN_TIME
+                            ResultStatus.WAITING_RESULT_OPEN_TIME,
+                            ResultStatus.GENERATING,
+                            ResultStatus.FAILED
                     ).contains(survey.resultStatus()))
                     .toList();
         }
@@ -262,8 +337,9 @@ class ResultGenerationServiceTest {
         }
 
         @Override
-        public boolean markGenerating(Long surveyId) {
-            if (unclaimedSurveyIds.contains(surveyId)) {
+        public boolean markGenerating(Long surveyId, int maxAttempts) {
+            SurveyRecord survey = surveys.get(surveyId);
+            if (unclaimedSurveyIds.contains(surveyId) || survey.resultGenerationAttemptCount() >= maxAttempts) {
                 return false;
             }
             statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(ResultStatus.GENERATING);
@@ -327,6 +403,7 @@ class ResultGenerationServiceTest {
         private final Map<Long, OffsetDateTime> savedAtBySurveyId = new LinkedHashMap<>();
         private final FakeSurveyRepository surveyRepository;
         private Long failSaveReadySurveyId;
+        private ResultNarrative savedNarrative;
 
         private FakeResultRepository(FakeSurveyRepository surveyRepository) {
             this.surveyRepository = surveyRepository;
@@ -340,6 +417,26 @@ class ResultGenerationServiceTest {
         @Override
         public boolean existsBySurveyId(Long surveyId) {
             return resultsBySurveyId.containsKey(surveyId);
+        }
+
+        @Override
+        public boolean hasNarrative(Long surveyId) {
+            return resultsBySurveyId.containsKey(surveyId);
+        }
+
+        @Override
+        public void saveNarrative(Long surveyId, List<ResultAnswerAdjectiveRecord> answers, ResultNarrative narrative, OffsetDateTime now) {
+            savedNarrative = narrative;
+        }
+
+        @Override
+        public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey) {
+            throw new UnsupportedOperationException("not used in result generation tests");
+        }
+
+        @Override
+        public void markQuadrantImageFailed(Long surveyId, ResultQuadrantType quadrantType, String failureReason) {
+            throw new UnsupportedOperationException("not used in result generation tests");
         }
 
         @Override
@@ -358,7 +455,8 @@ class ResultGenerationServiceTest {
         private String failSurveyCode;
 
         @Override
-        public GeneratedResult generate(SurveyRecord survey) {
+        public GeneratedResult generate(ResultGenerationRequest request) {
+            SurveyRecord survey = request.survey();
             generatedSurveyCodes.add(survey.surveyCode());
             if (survey.surveyCode().equals(failSurveyCode)) {
                 throw new IllegalStateException("generation failed");
@@ -371,6 +469,26 @@ class ResultGenerationServiceTest {
                 );
             }
             return new GeneratedResult(imageUrls);
+        }
+    }
+
+    private static final class FakeResultGenerationSourceReader implements ResultGenerationSourceReader {
+        private List<ResultAnswerAdjectiveRecord> answers = List.of();
+
+        @Override
+        public List<ResultAnswerAdjectiveRecord> readCompletedAnswers(Long surveyId) {
+            return answers;
+        }
+    }
+
+    private static final class FakeResultNarrativeClient implements ResultNarrativeClient {
+        private ResultNarrative narrative = new ResultNarrative(Map.of(), Map.of());
+        private int calls;
+
+        @Override
+        public ResultNarrative generate(List<ResultAnswerAdjectiveRecord> answers) {
+            calls++;
+            return narrative;
         }
     }
 }

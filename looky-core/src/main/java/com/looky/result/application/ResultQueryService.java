@@ -5,8 +5,10 @@ import com.looky.common.exception.LookyException;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
+import com.looky.survey.application.ResultStatusResolver;
 import com.looky.survey.application.dto.SurveyResultResult;
 import com.looky.survey.domain.ResultStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumMap;
@@ -17,19 +19,35 @@ public class ResultQueryService {
 
     private final SurveyRepository surveyRepository;
     private final ResultRepository resultRepository;
+    private final ResultStatusResolver resultStatusResolver;
+    private final ResultUrlSigner resultUrlSigner;
 
-    public ResultQueryService(SurveyRepository surveyRepository, ResultRepository resultRepository) {
+    @Autowired
+    public ResultQueryService(
+            SurveyRepository surveyRepository,
+            ResultRepository resultRepository,
+            ResultStatusResolver resultStatusResolver,
+            ResultUrlSigner resultUrlSigner
+    ) {
         this.surveyRepository = surveyRepository;
         this.resultRepository = resultRepository;
+        this.resultStatusResolver = resultStatusResolver;
+        this.resultUrlSigner = resultUrlSigner;
+    }
+
+    public ResultQueryService(SurveyRepository surveyRepository, ResultRepository resultRepository, ResultStatusResolver resultStatusResolver) {
+        this(surveyRepository, resultRepository, resultStatusResolver, objectKey -> objectKey);
     }
 
     public SurveyResultResult getSurveyResult(String surveyCode) {
         SurveyRecord survey = surveyRepository.findBySurveyCode(surveyCode)
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
-        if (survey.resultStatus() != ResultStatus.READY) {
+        ResultStatus resultStatus = resultStatusResolver.resolve(survey);
+        if (resultStatus != ResultStatus.READY) {
             return new SurveyResultResult(
                     survey.surveyCode(),
-                    survey.resultStatus(),
+                    resultStatus,
+                    null,
                     null
             );
         }
@@ -37,15 +55,22 @@ public class ResultQueryService {
         ResultRecord result = resultRepository.findBySurveyId(survey.id())
                 .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
         Map<ResultQuadrantType, String> imageUrls = toQuadrantImageUrls(result);
+        Map<ResultQuadrantType, String> interpretations = toQuadrantInterpretations(result);
 
         return new SurveyResultResult(
                 survey.surveyCode(),
-                survey.resultStatus(),
+                resultStatus,
                 Map.of(
                         ResultQuadrantType.OPEN.name(), imageUrls.get(ResultQuadrantType.OPEN),
                         ResultQuadrantType.BLIND.name(), imageUrls.get(ResultQuadrantType.BLIND),
                         ResultQuadrantType.HIDDEN.name(), imageUrls.get(ResultQuadrantType.HIDDEN),
                         ResultQuadrantType.UNKNOWN.name(), imageUrls.get(ResultQuadrantType.UNKNOWN)
+                ),
+                interpretations == null ? null : Map.of(
+                        ResultQuadrantType.OPEN.name(), interpretations.get(ResultQuadrantType.OPEN),
+                        ResultQuadrantType.BLIND.name(), interpretations.get(ResultQuadrantType.BLIND),
+                        ResultQuadrantType.HIDDEN.name(), interpretations.get(ResultQuadrantType.HIDDEN),
+                        ResultQuadrantType.UNKNOWN.name(), interpretations.get(ResultQuadrantType.UNKNOWN)
                 )
         );
     }
@@ -53,7 +78,7 @@ public class ResultQueryService {
     private Map<ResultQuadrantType, String> toQuadrantImageUrls(ResultRecord result) {
         Map<ResultQuadrantType, String> imageUrls = new EnumMap<>(ResultQuadrantType.class);
         for (ResultQuadrantRecord quadrant : result.quadrants()) {
-            imageUrls.put(quadrant.quadrantType(), quadrant.imageUrl());
+            imageUrls.put(quadrant.quadrantType(), quadrant.s3ObjectKey() == null ? quadrant.imageUrl() : resultUrlSigner.sign(quadrant.s3ObjectKey()));
         }
         for (ResultQuadrantType type : ResultQuadrantType.values()) {
             String imageUrl = imageUrls.get(type);
@@ -62,5 +87,12 @@ public class ResultQueryService {
             }
         }
         return imageUrls;
+    }
+
+    private Map<ResultQuadrantType, String> toQuadrantInterpretations(ResultRecord result) {
+        Map<ResultQuadrantType, String> interpretations = new EnumMap<>(ResultQuadrantType.class);
+        for (ResultQuadrantRecord quadrant : result.quadrants()) interpretations.put(quadrant.quadrantType(), quadrant.interpretation());
+        for (ResultQuadrantType type : ResultQuadrantType.values()) if (interpretations.get(type) == null || interpretations.get(type).isBlank()) return null;
+        return interpretations;
     }
 }

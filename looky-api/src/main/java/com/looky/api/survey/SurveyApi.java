@@ -152,6 +152,12 @@ public interface SurveyApi {
                                                                   "BLIND": "https://cdn.looky.my/results/b91k2p8xq4z2/blind.png",
                                                                   "HIDDEN": "https://cdn.looky.my/results/b91k2p8xq4z2/hidden.png",
                                                                   "UNKNOWN": "https://cdn.looky.my/results/b91k2p8xq4z2/unknown.png"
+                                                                },
+                                                                "quadrantInterpretations": {
+                                                                  "OPEN": "서로 알고 있는 강점",
+                                                                  "BLIND": "타인이 먼저 발견하는 특성",
+                                                                  "HIDDEN": "혼자 알고 있는 내면",
+                                                                  "UNKNOWN": "아직 발견되지 않은 가능성"
                                                                 }
                                                               }
                                                             }

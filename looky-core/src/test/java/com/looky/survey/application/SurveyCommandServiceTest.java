@@ -3,6 +3,7 @@ package com.looky.survey.application;
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
 import com.looky.question.application.QuestionRecord;
+import com.looky.question.domain.TraitCode;
 import com.looky.submission.application.SubmissionQuestionRecord;
 import com.looky.submission.application.SubmissionRecord;
 import com.looky.submission.application.SubmissionRepository;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +50,8 @@ class SurveyCommandServiceTest {
             questionRepository,
             submissionRepository,
             clock,
-            new SurveyPolicy(Duration.ofHours(24))
+            new SurveyPolicy(Duration.ofHours(24)),
+            new ResultStatusResolver(submissionRepository, clock)
     );
 
     @Test
@@ -73,7 +76,8 @@ class SurveyCommandServiceTest {
                 questionRepository,
                 submissionRepository,
                 clock,
-                new SurveyPolicy(Duration.ZERO)
+                new SurveyPolicy(Duration.ZERO),
+                new ResultStatusResolver(submissionRepository, clock)
         );
 
         SurveyCreatedResult result = zeroDelayService.createSurvey(new CreateSurveyCommand("만두"));
@@ -90,6 +94,30 @@ class SurveyCommandServiceTest {
         assertEquals(SubmitterType.SELF, result.submitterType());
         assertEquals(SubmissionStatus.IN_PROGRESS, result.submissionStatus());
         assertEquals("만두", result.targetNickname());
+    }
+
+    @Test
+    void startSubmissionAssignsTwoQuestionsForEachTrait() {
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        for (TraitCode traitCode : TraitCode.values()) {
+            assertEquals(2, result.questions().stream().filter(question -> question.content().startsWith(traitCode.name())).count());
+        }
+    }
+
+    @Test
+    void startSubmissionFailsWhenAnyTraitHasFewerThanTwoActiveQuestions() {
+        questionRepository.questionCountByTrait.put(TraitCode.AGREEABLENESS, 1);
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
+
+        LookyException exception = assertThrows(
+                LookyException.class,
+                () -> service.startSubmission(created.surveyCode())
+        );
+
+        assertEquals(ErrorCode.NOT_ENOUGH_ACTIVE_QUESTIONS, exception.errorCode());
     }
 
     @Test
@@ -177,6 +205,7 @@ class SurveyCommandServiceTest {
                     surveyCode,
                     SurveyStatus.DRAFT,
                     ResultStatus.WAITING_SELF_RESPONSE,
+                    0,
                     requiredPeerSubmissionCount,
                     resultAvailableAt,
                     now
@@ -206,6 +235,7 @@ class SurveyCommandServiceTest {
                     survey.surveyCode(),
                     SurveyStatus.COLLECTING,
                     survey.resultStatus(),
+                    survey.resultGenerationAttemptCount(),
                     survey.requiredPeerSubmissionCount(),
                     survey.resultAvailableAt(),
                     survey.createdAt()
@@ -213,7 +243,7 @@ class SurveyCommandServiceTest {
         }
 
         @Override
-        public boolean markGenerating(Long surveyId) {
+        public boolean markGenerating(Long surveyId, int maxAttempts) {
             throw new UnsupportedOperationException("not used in survey command tests");
         }
 
@@ -224,21 +254,29 @@ class SurveyCommandServiceTest {
     }
 
     private static final class FakeQuestionRepository implements com.looky.question.application.QuestionRepository {
+        private final Map<TraitCode, Integer> questionCountByTrait = new EnumMap<>(TraitCode.class);
+
         @Override
-        public List<QuestionRecord> findRandomActiveQuestions(int count, SubmitterType submitterType) {
+        public List<QuestionRecord> findRandomActiveQuestionsByTrait(int countPerTrait, SubmitterType submitterType) {
             List<QuestionRecord> questions = new ArrayList<>();
-            for (long i = 1; i <= count; i++) {
-                questions.add(new QuestionRecord(
-                        i,
-                        "질문 " + i,
+            long questionId = 1;
+            for (TraitCode traitCode : TraitCode.values()) {
+                int questionCount = questionCountByTrait.getOrDefault(traitCode, countPerTrait);
+                for (int i = 0; i < questionCount; i++) {
+                    questions.add(new QuestionRecord(
+                        questionId,
+                        traitCode,
+                        traitCode.name() + " 질문 " + questionId,
                         List.of(
-                                new QuestionRecord.AnswerOptionRecord(i * 10 + 1, 1, "답변 1"),
-                                new QuestionRecord.AnswerOptionRecord(i * 10 + 2, 2, "답변 2"),
-                                new QuestionRecord.AnswerOptionRecord(i * 10 + 3, 3, "답변 3"),
-                                new QuestionRecord.AnswerOptionRecord(i * 10 + 4, 4, "답변 4"),
-                                new QuestionRecord.AnswerOptionRecord(i * 10 + 5, 5, "답변 5")
+                                new QuestionRecord.AnswerOptionRecord(questionId * 10 + 1, 1, "답변 1"),
+                                new QuestionRecord.AnswerOptionRecord(questionId * 10 + 2, 2, "답변 2"),
+                                new QuestionRecord.AnswerOptionRecord(questionId * 10 + 3, 3, "답변 3"),
+                                new QuestionRecord.AnswerOptionRecord(questionId * 10 + 4, 4, "답변 4"),
+                                new QuestionRecord.AnswerOptionRecord(questionId * 10 + 5, 5, "답변 5")
                         )
-                ));
+                    ));
+                    questionId++;
+                }
             }
             return questions;
         }

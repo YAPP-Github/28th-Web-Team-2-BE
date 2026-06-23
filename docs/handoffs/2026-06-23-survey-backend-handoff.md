@@ -348,3 +348,11 @@ fake generator를 real generator로 치환하기 위한 인터페이스 확장
 - `306d12f feat: 결과 생성 스케줄러 추가`
 - `7c2e069 feat: 결과 오픈 지연 설정화`
 - `a7841b7 feat: 결과 조회 상태형 계약 반영`
+# AI 결과 생성 후속 반영
+
+- 완료된 SELF/PEER 응답에서 형용사와 조하리 창 사분면 해석·이미지 프롬프트를 생성한다.
+- 텍스트 분석은 `gpt-5.4-mini`, 이미지는 `gpt-image-2`를 사용한다.
+- 이미지는 private S3(`app-contents-dev`, `ap-northeast-2`)에 저장하고 결과 조회 시 24시간 presigned URL을 반환한다.
+- 이미지 품질은 `looky.result-generation.image-quality`로 설정하며 기본값은 `low`다.
+- 사분면별 상태와 시도 횟수를 저장한다. 성공한 사분면은 재생성하지 않으며 실패한 사분면만 최대 3회 재시도한다.
+- 모든 사분면이 `IMAGE_READY`일 때만 결과 상태를 `READY`로 전환한다.

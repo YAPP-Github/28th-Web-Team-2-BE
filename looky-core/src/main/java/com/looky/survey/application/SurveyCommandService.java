@@ -4,6 +4,7 @@ import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
 import com.looky.question.application.QuestionRecord;
 import com.looky.question.application.QuestionRepository;
+import com.looky.question.domain.TraitCode;
 import com.looky.submission.application.SubmissionQuestionRecord;
 import com.looky.submission.application.SubmissionRecord;
 import com.looky.submission.application.SubmissionRepository;
@@ -27,11 +28,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 @Service
 public class SurveyCommandService implements SurveyService {
 
-    private static final int QUESTION_COUNT = 8;
+    private static final int QUESTION_COUNT_PER_TRAIT = 2;
     private static final int REQUIRED_PEER_SUBMISSION_COUNT = 3;
     private static final char[] CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
 
@@ -40,6 +42,7 @@ public class SurveyCommandService implements SurveyService {
     private final SubmissionRepository submissionRepository;
     private final Clock clock;
     private final SurveyPolicy surveyPolicy;
+    private final ResultStatusResolver resultStatusResolver;
     private final SecureRandom random = new SecureRandom();
 
     public SurveyCommandService(
@@ -47,13 +50,15 @@ public class SurveyCommandService implements SurveyService {
             QuestionRepository questionRepository,
             SubmissionRepository submissionRepository,
             Clock clock,
-            SurveyPolicy surveyPolicy
+            SurveyPolicy surveyPolicy,
+            ResultStatusResolver resultStatusResolver
     ) {
         this.surveyRepository = surveyRepository;
         this.questionRepository = questionRepository;
         this.submissionRepository = submissionRepository;
         this.clock = clock;
         this.surveyPolicy = surveyPolicy;
+        this.resultStatusResolver = resultStatusResolver;
     }
 
     @Override
@@ -132,7 +137,7 @@ public class SurveyCommandService implements SurveyService {
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
         boolean selfSubmitted = submissionRepository.existsCompletedSelfSubmission(survey.id());
         long peerSubmissionCount = submissionRepository.countCompletedPeerSubmissions(survey.id());
-        ResultStatus resultStatus = resolveResultStatus(survey, selfSubmitted, peerSubmissionCount);
+        ResultStatus resultStatus = resultStatusResolver.resolve(survey);
         long remainingSeconds = Math.max(0, Duration.between(OffsetDateTime.now(clock), survey.resultAvailableAt()).toSeconds());
 
         return new SurveyStatusResult(
@@ -150,8 +155,11 @@ public class SurveyCommandService implements SurveyService {
     }
 
     private List<QuestionRecord> pickQuestions(SubmitterType submitterType) {
-        List<QuestionRecord> questions = questionRepository.findRandomActiveQuestions(QUESTION_COUNT, submitterType);
-        if (questions.size() < QUESTION_COUNT) {
+        List<QuestionRecord> questions = questionRepository.findRandomActiveQuestionsByTrait(QUESTION_COUNT_PER_TRAIT, submitterType);
+        if (questions.size() != TraitCode.values().length * QUESTION_COUNT_PER_TRAIT
+                || Arrays.stream(TraitCode.values()).anyMatch(traitCode -> questions.stream()
+                .filter(question -> question.traitCode() == traitCode)
+                .count() != QUESTION_COUNT_PER_TRAIT)) {
             throw new LookyException(ErrorCode.NOT_ENOUGH_ACTIVE_QUESTIONS);
         }
         return questions;
@@ -184,25 +192,6 @@ public class SurveyCommandService implements SurveyService {
                 throw new LookyException(ErrorCode.INVALID_ANSWER_OPTION);
             }
         }
-    }
-
-    private ResultStatus resolveResultStatus(SurveyRecord survey, boolean selfSubmitted, long peerSubmissionCount) {
-        if (survey.resultStatus() == ResultStatus.GENERATING
-                || survey.resultStatus() == ResultStatus.READY
-                || survey.resultStatus() == ResultStatus.FAILED
-                || survey.resultStatus() == ResultStatus.EXPIRED) {
-            return survey.resultStatus();
-        }
-        if (!selfSubmitted) {
-            return ResultStatus.WAITING_SELF_RESPONSE;
-        }
-        if (peerSubmissionCount < survey.requiredPeerSubmissionCount()) {
-            return ResultStatus.COLLECTING_PEER_RESPONSES;
-        }
-        if (OffsetDateTime.now(clock).isBefore(survey.resultAvailableAt())) {
-            return ResultStatus.WAITING_RESULT_OPEN_TIME;
-        }
-        return ResultStatus.GENERATING;
     }
 
     private String generateCode() {

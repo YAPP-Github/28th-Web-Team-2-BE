@@ -17,7 +17,9 @@ public class SurveyRepositoryImpl implements SurveyRepository {
     private static final List<ResultStatus> RESULT_GENERATION_CANDIDATE_STATUSES = List.of(
             ResultStatus.WAITING_SELF_RESPONSE,
             ResultStatus.COLLECTING_PEER_RESPONSES,
-            ResultStatus.WAITING_RESULT_OPEN_TIME
+            ResultStatus.WAITING_RESULT_OPEN_TIME,
+            ResultStatus.GENERATING,
+            ResultStatus.FAILED
     );
 
     private final SurveyJpaRepository surveyJpaRepository;
@@ -57,11 +59,12 @@ public class SurveyRepositoryImpl implements SurveyRepository {
     }
 
     @Override
-    public boolean markGenerating(Long surveyId) {
+    public boolean markGenerating(Long surveyId, int maxAttempts) {
         return surveyJpaRepository.updateResultStatusWhenCurrentStatusIn(
                 surveyId,
                 ResultStatus.GENERATING,
-                RESULT_GENERATION_CANDIDATE_STATUSES
+                RESULT_GENERATION_CANDIDATE_STATUSES,
+                maxAttempts
         ) == 1;
     }
 
@@ -78,6 +81,7 @@ public class SurveyRepositoryImpl implements SurveyRepository {
                 entity.getSurveyCode(),
                 entity.getSurveyStatus(),
                 entity.getResultStatus(),
+                entity.getResultGenerationAttemptCount(),
                 entity.getRequiredPeerSubmissionCount(),
                 entity.getResultAvailableAt(),
                 entity.getCreatedAt()

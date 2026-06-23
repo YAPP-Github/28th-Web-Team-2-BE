@@ -11,6 +11,7 @@ public record SurveyRecord(
         String surveyCode,
         SurveyStatus surveyStatus,
         ResultStatus resultStatus,
+        int resultGenerationAttemptCount,
         int requiredPeerSubmissionCount,
         OffsetDateTime resultAvailableAt,
         OffsetDateTime createdAt

@@ -22,13 +22,16 @@ public interface SurveyJpaRepository extends JpaRepository<SurveyJpaEntity, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update SurveyJpaEntity survey
-            set survey.resultStatus = :nextStatus
+            set survey.resultStatus = :nextStatus,
+                survey.resultGenerationAttemptCount = survey.resultGenerationAttemptCount + 1
             where survey.id = :surveyId
               and survey.resultStatus in (:currentStatuses)
+              and survey.resultGenerationAttemptCount < :maxAttempts
             """)
     int updateResultStatusWhenCurrentStatusIn(
             @Param("surveyId") Long surveyId,
             @Param("nextStatus") ResultStatus nextStatus,
-            @Param("currentStatuses") Collection<ResultStatus> currentStatuses
+            @Param("currentStatuses") Collection<ResultStatus> currentStatuses,
+            @Param("maxAttempts") int maxAttempts
     );
 }
