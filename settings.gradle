@@ -1,4 +1,9 @@
-rootProject.name = 'feed'
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+rootProject.name = 'looky-server'
 
-include 'feed-api'
-include 'auth-api'
+include 'looky-common'
+include 'looky-core'
+include 'looky-infrastructure'
+include 'looky-api'
