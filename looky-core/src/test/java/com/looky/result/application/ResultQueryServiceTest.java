@@ -158,6 +158,11 @@ class ResultQueryServiceTest {
         }
 
         @Override
+        public boolean markGenerating(Long surveyId) {
+            throw new UnsupportedOperationException("not used in result query tests");
+        }
+
+        @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
@@ -181,7 +186,7 @@ class ResultQueryServiceTest {
         }
 
         @Override
-        public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+        public void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
     }

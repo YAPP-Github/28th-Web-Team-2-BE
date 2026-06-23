@@ -45,15 +45,16 @@ public class ResultGenerationService {
             if (resultRepository.existsBySurveyId(survey.id())) {
                 continue;
             }
+            if (!surveyRepository.markGenerating(survey.id())) {
+                continue;
+            }
 
-            surveyRepository.updateResultStatus(survey.id(), ResultStatus.GENERATING);
             try {
                 GeneratedResult generatedResult = resultGeneratorClient.generate(survey);
-                resultRepository.saveResult(survey.id(), generatedResult.toQuadrants(), now);
-                surveyRepository.updateResultStatus(survey.id(), ResultStatus.READY);
+                resultRepository.saveReadyResult(survey.id(), generatedResult.toQuadrants(), now);
                 generatedCount++;
             } catch (RuntimeException exception) {
-                surveyRepository.updateResultStatus(survey.id(), ResultStatus.FAILED);
+                markFailed(survey.id());
             }
         }
 
@@ -64,5 +65,13 @@ public class ResultGenerationService {
         return submissionRepository.existsCompletedSelfSubmission(survey.id())
                 && submissionRepository.countCompletedPeerSubmissions(survey.id()) >= survey.requiredPeerSubmissionCount()
                 && !survey.resultAvailableAt().isAfter(now);
+    }
+
+    private void markFailed(Long surveyId) {
+        try {
+            surveyRepository.updateResultStatus(surveyId, ResultStatus.FAILED);
+        } catch (RuntimeException exception) {
+            // Keep the scheduler processing remaining candidates even if failure recording fails.
+        }
     }
 }

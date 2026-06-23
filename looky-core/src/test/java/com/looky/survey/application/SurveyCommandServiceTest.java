@@ -196,6 +196,11 @@ class SurveyCommandServiceTest {
         }
 
         @Override
+        public boolean markGenerating(Long surveyId) {
+            throw new UnsupportedOperationException("not used in survey command tests");
+        }
+
+        @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             throw new UnsupportedOperationException("not used in survey command tests");
         }

@@ -10,7 +10,7 @@
 - 스케줄러는 1분마다 실행한다.
 - 스케줄러는 매 주기마다 생성 조건을 만족한 설문을 조회한다.
 - 대상 조건은 `SELF` 제출 완료, 완료된 `PEER` 응답 수가 `requiredPeerSubmissionCount` 이상, `resultAvailableAt <= now`, 결과 상태가 아직 완료 전인 설문이다.
-- 상태 전이는 `GENERATING` 저장 후 결과 생성과 저장을 수행하고, 성공 시 `READY`, 실패 시 `FAILED`로 저장한다.
+- 상태 전이는 조건부 claim으로 `GENERATING`을 저장한 뒤 결과 생성과 저장을 수행하고, 성공 시 결과 저장과 `READY` 전이를 한 트랜잭션으로 처리한다. 실패 시 `FAILED`로 저장한다.
 - fake 이미지 URL은 `https://cdn.looky.my/results/{surveyCode}/{quadrant}.png` 형식으로 저장한다.
 - 이번 범위에는 실제 AI 호출, S3 업로드, CDN 배포, 관리자 API, 수동 재생성 API를 포함하지 않는다.
 
@@ -27,10 +27,10 @@ core에는 결과 생성 유스케이스를 담당하는 `ResultGenerationServic
 1. `ResultGenerationScheduler`가 1분마다 실행된다.
 2. 스케줄러는 `ResultGenerationService.generateReadyResults()`를 호출한다.
 3. 서비스는 현재 시각 기준으로 생성 후보 설문을 조회한다.
-4. 각 후보 설문에 대해 `resultStatus`를 `GENERATING`으로 저장한다.
+4. 각 후보 설문에 대해 `resultStatus`를 조건부로 `GENERATING`으로 변경해 생성 작업을 claim한다.
 5. `ResultGeneratorClient`가 사분면별 이미지 URL 4개를 생성한다.
-6. `ResultRepository`가 `results`와 `result_quadrants`를 저장한다.
-7. 저장 성공 시 설문 상태를 `READY`로 변경한다.
+6. `ResultRepository`가 `results`, `result_quadrants`, 설문의 `READY` 상태를 같은 트랜잭션으로 저장한다.
+7. 저장 성공 시 해당 설문은 결과 조회 가능한 상태가 된다.
 8. 생성 또는 저장 중 예외가 발생하면 설문 상태를 `FAILED`로 변경하고 다음 후보 처리를 계속한다.
 
 ## Eligibility Rules
@@ -48,8 +48,8 @@ core에는 결과 생성 유스케이스를 담당하는 `ResultGenerationServic
 
 ## State Transitions
 
-- 후보 검증 성공: `WAITING_SELF_RESPONSE`, `COLLECTING_PEER_RESPONSES`, `WAITING_RESULT_OPEN_TIME` 중 현재 DB 상태에서 `GENERATING`
-- 결과 저장 성공: `GENERATING`에서 `READY`
+- 후보 검증 성공: `WAITING_SELF_RESPONSE`, `COLLECTING_PEER_RESPONSES`, `WAITING_RESULT_OPEN_TIME` 중 현재 DB 상태에서 조건부 update로 `GENERATING`
+- 결과 저장 성공: `results`, `result_quadrants` 저장과 같은 트랜잭션에서 `GENERATING`에서 `READY`
 - 결과 생성 또는 저장 실패: `GENERATING`에서 `FAILED`
 - 이미 `READY`, `FAILED`, `EXPIRED`인 설문은 스케줄러가 변경하지 않는다.
 
@@ -72,11 +72,13 @@ core에는 결과 생성 유스케이스를 담당하는 `ResultGenerationServic
 
 - `com.looky.result.application.ResultRepository`
   - 기존 `findBySurveyId` 유지
-  - 결과 존재 여부 확인과 결과 저장 메서드 추가
+  - 결과 존재 여부 확인과 `saveReadyResult` 메서드 추가
+  - `saveReadyResult`는 결과 row, 사분면 row, 설문의 `READY` 상태를 원자적으로 저장
 
 - `com.looky.survey.application.SurveyRepository`
   - 생성 후보 조회 메서드 추가
-  - `resultStatus` 변경 메서드 추가
+  - 조건부 `markGenerating` claim 메서드 추가
+  - 실패 처리를 위한 `resultStatus` 변경 메서드 추가
 
 ### Infrastructure
 
@@ -92,11 +94,12 @@ core에는 결과 생성 유스케이스를 담당하는 `ResultGenerationServic
 
 - `com.looky.result.persistence.ResultRepositoryImpl`
   - 결과 존재 여부 확인
-  - `results`, `result_quadrants` 저장
+  - `results`, `result_quadrants`, `READY` 상태를 같은 트랜잭션으로 저장
 
 - `com.looky.survey.persistence.SurveyRepositoryImpl`
   - 생성 후보 조회
-  - `resultStatus` 업데이트
+  - 조건부 `GENERATING` claim
+  - 실패 상태 업데이트
 
 ## Error Handling
 
@@ -106,7 +109,7 @@ fake generator는 정상 입력에서는 실패하지 않는다. 테스트에서
 
 ## Concurrency
 
-3차에서는 단일 애플리케이션 인스턴스를 전제로 한다. 같은 설문을 중복 생성하지 않기 위해 service에서 결과 존재 여부를 확인하고, `results.survey_id` unique 제약을 유지한다.
+3차에서는 단일 애플리케이션 인스턴스를 전제로 한다. 같은 설문을 중복 생성하지 않기 위해 service에서 결과 존재 여부를 확인하고, `markGenerating`을 조건부 update로 수행하며, `results.survey_id` unique 제약을 유지한다.
 
 다중 인스턴스 환경의 분산락, `SKIP LOCKED`, 재시도 큐는 이번 범위에서 제외한다.
 

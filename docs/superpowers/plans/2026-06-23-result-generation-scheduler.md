@@ -323,7 +323,7 @@ class ResultGenerationServiceTest {
         }
 
         @Override
-        public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+        public void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
             resultsBySurveyId.put(surveyId, new ResultRecord(sequence++, surveyId, quadrants));
         }
     }
@@ -418,7 +418,10 @@ public interface ResultRepository {
 
     boolean existsBySurveyId(Long surveyId);
 
-    void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now);
+    /**
+     * Persist result quadrants and mark the survey READY atomically.
+     */
+    void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now);
 }
 ```
 
@@ -447,6 +450,8 @@ public interface SurveyRepository {
     List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now);
 
     void markCollecting(Long surveyId);
+
+    boolean markGenerating(Long surveyId);
 
     void updateResultStatus(Long surveyId, ResultStatus resultStatus);
 }
@@ -505,11 +510,12 @@ public class ResultGenerationService {
                 continue;
             }
 
-            surveyRepository.updateResultStatus(survey.id(), ResultStatus.GENERATING);
+            if (!surveyRepository.markGenerating(survey.id())) {
+                continue;
+            }
             try {
                 GeneratedResult generatedResult = resultGeneratorClient.generate(survey);
-                resultRepository.saveResult(survey.id(), generatedResult.toQuadrants(), now);
-                surveyRepository.updateResultStatus(survey.id(), ResultStatus.READY);
+                resultRepository.saveReadyResult(survey.id(), generatedResult.toQuadrants(), now);
                 generatedCount++;
             } catch (RuntimeException exception) {
                 surveyRepository.updateResultStatus(survey.id(), ResultStatus.FAILED);
@@ -544,6 +550,11 @@ public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
 }
 
 @Override
+public boolean markGenerating(Long surveyId) {
+    throw new UnsupportedOperationException("not used in result query tests");
+}
+
+@Override
 public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
     throw new UnsupportedOperationException("not used in result query tests");
 }
@@ -555,7 +566,7 @@ public boolean existsBySurveyId(Long surveyId) {
 }
 
 @Override
-public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+public void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
     throw new UnsupportedOperationException("not used in result query tests");
 }
 ```
@@ -565,6 +576,11 @@ Modify `looky-core/src/test/java/com/looky/survey/application/SurveyCommandServi
 ```java
 @Override
 public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
+    throw new UnsupportedOperationException("not used in survey command tests");
+}
+
+@Override
+public boolean markGenerating(Long surveyId) {
     throw new UnsupportedOperationException("not used in survey command tests");
 }
 
@@ -647,6 +663,9 @@ package com.looky.survey.persistence;
 
 import com.looky.survey.domain.ResultStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.Collection;
@@ -659,6 +678,19 @@ public interface SurveyJpaRepository extends JpaRepository<SurveyJpaEntity, Long
     List<SurveyJpaEntity> findByResultStatusInAndResultAvailableAtLessThanEqual(
             Collection<ResultStatus> resultStatuses,
             OffsetDateTime now
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update SurveyJpaEntity survey
+            set survey.resultStatus = :nextStatus
+            where survey.id = :surveyId
+              and survey.resultStatus in (:currentStatuses)
+            """)
+    int updateResultStatusWhenCurrentStatusIn(
+            @Param("surveyId") Long surveyId,
+            @Param("nextStatus") ResultStatus nextStatus,
+            @Param("currentStatuses") Collection<ResultStatus> currentStatuses
     );
 }
 ```
@@ -686,6 +718,19 @@ public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
             .stream()
             .map(this::toRecord)
             .toList();
+}
+
+@Override
+public boolean markGenerating(Long surveyId) {
+    return surveyJpaRepository.updateResultStatusWhenCurrentStatusIn(
+            surveyId,
+            ResultStatus.GENERATING,
+            List.of(
+                    ResultStatus.WAITING_SELF_RESPONSE,
+                    ResultStatus.COLLECTING_PEER_RESPONSES,
+                    ResultStatus.WAITING_RESULT_OPEN_TIME
+            )
+    ) == 1;
 }
 
 @Override
@@ -745,7 +790,7 @@ public boolean existsBySurveyId(Long surveyId) {
 
 @Override
 @Transactional
-public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+public void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
     SurveyJpaEntity survey = surveyJpaRepository.findById(surveyId).orElseThrow();
     ResultJpaEntity result = resultJpaRepository.save(new ResultJpaEntity(survey, now));
     resultQuadrantJpaRepository.saveAll(quadrants.stream()
@@ -755,6 +800,7 @@ public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, Offs
                     quadrant.imageUrl()
             ))
             .toList());
+    survey.updateResultStatus(ResultStatus.READY);
 }
 ```
 

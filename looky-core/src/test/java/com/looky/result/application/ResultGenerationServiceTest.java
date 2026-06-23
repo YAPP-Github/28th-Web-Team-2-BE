@@ -30,7 +30,7 @@ class ResultGenerationServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-06-23T00:00:00Z"), ZoneId.of("Asia/Seoul"));
     private final FakeSurveyRepository surveyRepository = new FakeSurveyRepository();
     private final FakeSubmissionRepository submissionRepository = new FakeSubmissionRepository();
-    private final FakeResultRepository resultRepository = new FakeResultRepository();
+    private final FakeResultRepository resultRepository = new FakeResultRepository(surveyRepository);
     private final FakeResultGeneratorClient resultGeneratorClient = new FakeResultGeneratorClient();
     private final ResultGenerationService service = new ResultGenerationService(
             surveyRepository,
@@ -113,6 +113,22 @@ class ResultGenerationServiceTest {
     }
 
     @Test
+    void generateReadyResultsSkipsWhenGeneratingClaimFails() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        surveyRepository.unclaimedSurveyIds.add(survey.id());
+
+        int generatedCount = service.generateReadyResults();
+
+        assertEquals(0, generatedCount);
+        assertTrue(surveyRepository.statusUpdates.isEmpty());
+        assertTrue(resultGeneratorClient.generatedSurveyCodes.isEmpty());
+        assertFalse(resultRepository.resultsBySurveyId.containsKey(survey.id()));
+    }
+
+    @Test
     void generateReadyResultsMarksFailedAndContinuesWhenGeneratorFails() {
         SurveyRecord failedSurvey = survey(1L, "failcode0001", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         SurveyRecord successSurvey = survey(2L, "b91k2p8xq4z2", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
@@ -134,7 +150,7 @@ class ResultGenerationServiceTest {
     }
 
     @Test
-    void generateReadyResultsMarksFailedAndContinuesWhenReadyStatusUpdateFails() {
+    void generateReadyResultsMarksFailedAndContinuesWhenSaveReadyResultFails() {
         SurveyRecord failedSurvey = survey(1L, "failcode0001", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         SurveyRecord successSurvey = survey(2L, "b91k2p8xq4z2", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(failedSurvey);
@@ -143,13 +159,14 @@ class ResultGenerationServiceTest {
         submissionRepository.completedSelfSurveyIds.add(successSurvey.id());
         submissionRepository.completedPeerCounts.put(failedSurvey.id(), 3L);
         submissionRepository.completedPeerCounts.put(successSurvey.id(), 3L);
-        surveyRepository.failReadyStatusSurveyId = failedSurvey.id();
+        resultRepository.failSaveReadySurveyId = failedSurvey.id();
 
         int generatedCount = service.generateReadyResults();
 
         assertEquals(1, generatedCount);
         assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.FAILED), surveyRepository.statusUpdates.get(failedSurvey.id()));
         assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(successSurvey.id()));
+        assertFalse(resultRepository.resultsBySurveyId.containsKey(failedSurvey.id()));
         assertTrue(resultRepository.resultsBySurveyId.containsKey(successSurvey.id()));
     }
 
@@ -210,7 +227,7 @@ class ResultGenerationServiceTest {
     private static final class FakeSurveyRepository implements SurveyRepository {
         private final Map<Long, SurveyRecord> surveys = new LinkedHashMap<>();
         private final Map<Long, List<ResultStatus>> statusUpdates = new LinkedHashMap<>();
-        private Long failReadyStatusSurveyId;
+        private final List<Long> unclaimedSurveyIds = new ArrayList<>();
 
         void save(SurveyRecord survey) {
             surveys.put(survey.id(), survey);
@@ -245,10 +262,16 @@ class ResultGenerationServiceTest {
         }
 
         @Override
-        public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
-            if (surveyId.equals(failReadyStatusSurveyId) && resultStatus == ResultStatus.READY) {
-                throw new IllegalStateException("ready status update failed");
+        public boolean markGenerating(Long surveyId) {
+            if (unclaimedSurveyIds.contains(surveyId)) {
+                return false;
             }
+            statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(ResultStatus.GENERATING);
+            return true;
+        }
+
+        @Override
+        public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(resultStatus);
         }
     }
@@ -302,6 +325,12 @@ class ResultGenerationServiceTest {
     private static final class FakeResultRepository implements ResultRepository {
         private final Map<Long, ResultRecord> resultsBySurveyId = new LinkedHashMap<>();
         private final Map<Long, OffsetDateTime> savedAtBySurveyId = new LinkedHashMap<>();
+        private final FakeSurveyRepository surveyRepository;
+        private Long failSaveReadySurveyId;
+
+        private FakeResultRepository(FakeSurveyRepository surveyRepository) {
+            this.surveyRepository = surveyRepository;
+        }
 
         @Override
         public Optional<ResultRecord> findBySurveyId(Long surveyId) {
@@ -314,17 +343,23 @@ class ResultGenerationServiceTest {
         }
 
         @Override
-        public void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+        public void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now) {
+            if (surveyId.equals(failSaveReadySurveyId)) {
+                throw new IllegalStateException("save ready result failed");
+            }
             resultsBySurveyId.put(surveyId, new ResultRecord(10L + surveyId, surveyId, quadrants));
             savedAtBySurveyId.put(surveyId, now);
+            surveyRepository.updateResultStatus(surveyId, ResultStatus.READY);
         }
     }
 
     private static final class FakeResultGeneratorClient implements ResultGeneratorClient {
+        private final List<String> generatedSurveyCodes = new ArrayList<>();
         private String failSurveyCode;
 
         @Override
         public GeneratedResult generate(SurveyRecord survey) {
+            generatedSurveyCodes.add(survey.surveyCode());
             if (survey.surveyCode().equals(failSurveyCode)) {
                 throw new IllegalStateException("generation failed");
             }

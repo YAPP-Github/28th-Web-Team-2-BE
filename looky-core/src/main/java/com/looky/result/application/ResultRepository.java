@@ -9,5 +9,8 @@ public interface ResultRepository {
 
     boolean existsBySurveyId(Long surveyId);
 
-    void saveResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now);
+    /**
+     * Persist result quadrants and mark the survey READY atomically.
+     */
+    void saveReadyResult(Long surveyId, List<ResultQuadrantRecord> quadrants, OffsetDateTime now);
 }

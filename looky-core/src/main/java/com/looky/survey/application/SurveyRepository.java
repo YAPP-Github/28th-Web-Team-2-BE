@@ -21,5 +21,10 @@ public interface SurveyRepository {
 
     void markCollecting(Long surveyId);
 
+    /**
+     * Claim a survey for generation by moving it to GENERATING when still eligible.
+     */
+    boolean markGenerating(Long surveyId);
+
     void updateResultStatus(Long surveyId, ResultStatus resultStatus);
 }
