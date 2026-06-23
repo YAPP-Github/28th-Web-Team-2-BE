@@ -130,11 +130,80 @@ public interface SurveyApi {
 
     @Operation(
             summary = "설문 결과 조회",
-            description = "결과가 준비된 설문의 조하리 4분면 이미지 URL을 조회합니다.",
+            description = "surveyCode로 결과 조회 상태를 반환합니다. 유효한 surveyCode라면 200으로 응답하며, payload.resultStatus를 확인합니다. quadrantImageUrls는 READY 상태일 때만 내려갑니다.",
             responses = {
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결과 조회 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200",
+                            description = "결과 조회 성공",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = {
+                                            @ExampleObject(
+                                                    name = "READY",
+                                                    value = """
+                                                            {
+                                                              "status": "success",
+                                                              "message": "설문 결과를 조회했습니다.",
+                                                              "payload": {
+                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "resultStatus": "READY",
+                                                                "quadrantImageUrls": {
+                                                                  "OPEN": "https://cdn.looky.my/results/b91k2p8xq4z2/open.png",
+                                                                  "BLIND": "https://cdn.looky.my/results/b91k2p8xq4z2/blind.png",
+                                                                  "HIDDEN": "https://cdn.looky.my/results/b91k2p8xq4z2/hidden.png",
+                                                                  "UNKNOWN": "https://cdn.looky.my/results/b91k2p8xq4z2/unknown.png"
+                                                                }
+                                                              }
+                                                            }
+                                                            """
+                                            ),
+                                            @ExampleObject(
+                                                    name = "WAITING",
+                                                    value = """
+                                                            {
+                                                              "status": "success",
+                                                              "message": "설문 결과를 조회했습니다.",
+                                                              "payload": {
+                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "resultStatus": "COLLECTING_PEER_RESPONSES",
+                                                                "quadrantImageUrls": null
+                                                              }
+                                                            }
+                                                            """
+                                            ),
+                                            @ExampleObject(
+                                                    name = "GENERATING",
+                                                    value = """
+                                                            {
+                                                              "status": "success",
+                                                              "message": "설문 결과를 조회했습니다.",
+                                                              "payload": {
+                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "resultStatus": "GENERATING",
+                                                                "quadrantImageUrls": null
+                                                              }
+                                                            }
+                                                            """
+                                            ),
+                                            @ExampleObject(
+                                                    name = "FAILED",
+                                                    value = """
+                                                            {
+                                                              "status": "success",
+                                                              "message": "설문 결과를 조회했습니다.",
+                                                              "payload": {
+                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "resultStatus": "FAILED",
+                                                                "quadrantImageUrls": null
+                                                              }
+                                                            }
+                                                            """
+                                            )
+                                    }
+                            )
+                    ),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "유효하지 않은 surveyCode"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "결과 미준비 또는 결과 생성 실패")
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "결과 데이터 불일치 등 서버 내부 오류")
             }
     )
     ResponseEntity<ApiResponse<SurveyResultResponse>> getSurveyResult(

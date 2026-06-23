@@ -26,19 +26,21 @@ public class ResultQueryService {
     public SurveyResultResult getSurveyResult(String surveyCode) {
         SurveyRecord survey = surveyRepository.findBySurveyCode(surveyCode)
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
-        if (survey.resultStatus() == ResultStatus.FAILED) {
-            throw new LookyException(ErrorCode.RESULT_GENERATION_FAILED);
-        }
         if (survey.resultStatus() != ResultStatus.READY) {
-            throw new LookyException(ErrorCode.RESULT_NOT_READY);
+            return new SurveyResultResult(
+                    survey.surveyCode(),
+                    survey.resultStatus(),
+                    null
+            );
         }
 
         ResultRecord result = resultRepository.findBySurveyId(survey.id())
-                .orElseThrow(() -> new LookyException(ErrorCode.RESULT_NOT_READY));
+                .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
         Map<ResultQuadrantType, String> imageUrls = toQuadrantImageUrls(result);
 
         return new SurveyResultResult(
                 survey.surveyCode(),
+                survey.resultStatus(),
                 Map.of(
                         ResultQuadrantType.OPEN.name(), imageUrls.get(ResultQuadrantType.OPEN),
                         ResultQuadrantType.BLIND.name(), imageUrls.get(ResultQuadrantType.BLIND),
@@ -56,7 +58,7 @@ public class ResultQueryService {
         for (ResultQuadrantType type : ResultQuadrantType.values()) {
             String imageUrl = imageUrls.get(type);
             if (imageUrl == null || imageUrl.isBlank()) {
-                throw new LookyException(ErrorCode.RESULT_NOT_READY);
+                throw new LookyException(ErrorCode.INTERNAL_SERVER_ERROR);
             }
         }
         return imageUrls;

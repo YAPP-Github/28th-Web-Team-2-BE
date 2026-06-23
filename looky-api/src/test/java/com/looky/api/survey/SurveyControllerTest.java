@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -223,6 +224,7 @@ class SurveyControllerTest {
         given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
                 .willReturn(new SurveyResultResult(
                         "b91k2p8xq4z2",
+                        ResultStatus.READY,
                         Map.of(
                                 "OPEN", "https://cdn.looky.my/results/b91/open.png",
                                 "BLIND", "https://cdn.looky.my/results/b91/blind.png",
@@ -236,6 +238,7 @@ class SurveyControllerTest {
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.message").value("설문 결과를 조회했습니다."))
                 .andExpect(jsonPath("$.payload.surveyCode").value("b91k2p8xq4z2"))
+                .andExpect(jsonPath("$.payload.resultStatus").value("READY"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.OPEN").value("https://cdn.looky.my/results/b91/open.png"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.BLIND").value("https://cdn.looky.my/results/b91/blind.png"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.HIDDEN").value("https://cdn.looky.my/results/b91/hidden.png"))
@@ -244,15 +247,51 @@ class SurveyControllerTest {
     }
 
     @Test
-    void getSurveyResultReturnsConflictWhenResultIsNotReady() throws Exception {
+    void getSurveyResultReturnsWaitingStatusWhenResultIsNotReady() throws Exception {
         given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
-                .willThrow(new LookyException(ErrorCode.RESULT_NOT_READY));
+                .willReturn(new SurveyResultResult(
+                        "b91k2p8xq4z2",
+                        ResultStatus.COLLECTING_PEER_RESPONSES,
+                        null
+                ));
 
         mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value("fail"))
-                .andExpect(jsonPath("$.message").value("결과가 아직 준비되지 않았습니다."))
-                .andExpect(jsonPath("$.payload.errorCode").value("RESULT_NOT_READY"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.payload.resultStatus").value("COLLECTING_PEER_RESPONSES"))
+                .andExpect(jsonPath("$.payload.quadrantImageUrls").value(nullValue()));
+    }
+
+    @Test
+    void getSurveyResultReturnsGeneratingStatusWhenResultIsGenerating() throws Exception {
+        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
+                .willReturn(new SurveyResultResult(
+                        "b91k2p8xq4z2",
+                        ResultStatus.GENERATING,
+                        null
+                ));
+
+        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.payload.resultStatus").value("GENERATING"))
+                .andExpect(jsonPath("$.payload.quadrantImageUrls").value(nullValue()));
+    }
+
+    @Test
+    void getSurveyResultReturnsFailedStatusWhenGenerationFailed() throws Exception {
+        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
+                .willReturn(new SurveyResultResult(
+                        "b91k2p8xq4z2",
+                        ResultStatus.FAILED,
+                        null
+                ));
+
+        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.payload.resultStatus").value("FAILED"))
+                .andExpect(jsonPath("$.payload.quadrantImageUrls").value(nullValue()));
     }
 
     @Test

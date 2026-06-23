@@ -44,6 +44,7 @@ class ResultQueryServiceTest {
         SurveyResultResult result = service.getSurveyResult("b91k2p8xq4z2");
 
         assertEquals("b91k2p8xq4z2", result.surveyCode());
+        assertEquals(ResultStatus.READY, result.resultStatus());
         assertEquals("https://cdn.looky.my/results/b91/open.png", result.quadrantImageUrls().get("OPEN"));
         assertEquals("https://cdn.looky.my/results/b91/blind.png", result.quadrantImageUrls().get("BLIND"));
         assertEquals("https://cdn.looky.my/results/b91/hidden.png", result.quadrantImageUrls().get("HIDDEN"));
@@ -62,27 +63,36 @@ class ResultQueryServiceTest {
     }
 
     @Test
-    void getSurveyResultFailsWhenSurveyIsNotReady() {
+    void getSurveyResultReturnsWaitingStatusWhenSurveyIsNotReady() {
         surveyRepository.save(survey(ResultStatus.COLLECTING_PEER_RESPONSES));
 
-        LookyException exception = assertThrows(
-                LookyException.class,
-                () -> service.getSurveyResult("b91k2p8xq4z2")
-        );
+        SurveyResultResult result = service.getSurveyResult("b91k2p8xq4z2");
 
-        assertEquals(ErrorCode.RESULT_NOT_READY, exception.errorCode());
+        assertEquals("b91k2p8xq4z2", result.surveyCode());
+        assertEquals(ResultStatus.COLLECTING_PEER_RESPONSES, result.resultStatus());
+        assertEquals(null, result.quadrantImageUrls());
     }
 
     @Test
-    void getSurveyResultFailsWhenGenerationFailed() {
+    void getSurveyResultReturnsFailedStatusWhenGenerationFailed() {
         surveyRepository.save(survey(ResultStatus.FAILED));
 
-        LookyException exception = assertThrows(
-                LookyException.class,
-                () -> service.getSurveyResult("b91k2p8xq4z2")
-        );
+        SurveyResultResult result = service.getSurveyResult("b91k2p8xq4z2");
 
-        assertEquals(ErrorCode.RESULT_GENERATION_FAILED, exception.errorCode());
+        assertEquals("b91k2p8xq4z2", result.surveyCode());
+        assertEquals(ResultStatus.FAILED, result.resultStatus());
+        assertEquals(null, result.quadrantImageUrls());
+    }
+
+    @Test
+    void getSurveyResultReturnsGeneratingStatusWhenGenerationIsInProgress() {
+        surveyRepository.save(survey(ResultStatus.GENERATING));
+
+        SurveyResultResult result = service.getSurveyResult("b91k2p8xq4z2");
+
+        assertEquals("b91k2p8xq4z2", result.surveyCode());
+        assertEquals(ResultStatus.GENERATING, result.resultStatus());
+        assertEquals(null, result.quadrantImageUrls());
     }
 
     @Test
@@ -94,7 +104,7 @@ class ResultQueryServiceTest {
                 () -> service.getSurveyResult("b91k2p8xq4z2")
         );
 
-        assertEquals(ErrorCode.RESULT_NOT_READY, exception.errorCode());
+        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.errorCode());
     }
 
     @Test
@@ -111,7 +121,7 @@ class ResultQueryServiceTest {
                 () -> service.getSurveyResult("b91k2p8xq4z2")
         );
 
-        assertEquals(ErrorCode.RESULT_NOT_READY, exception.errorCode());
+        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.errorCode());
     }
 
     private SurveyRecord survey(ResultStatus resultStatus) {

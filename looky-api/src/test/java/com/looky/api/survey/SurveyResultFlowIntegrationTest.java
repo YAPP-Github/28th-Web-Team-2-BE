@@ -11,6 +11,7 @@ import com.looky.survey.application.dto.SubmissionStartedResult;
 import com.looky.survey.application.dto.SubmitAnswersCommand;
 import com.looky.survey.application.dto.SurveyCreatedResult;
 import com.looky.survey.application.dto.SurveyResultResult;
+import com.looky.survey.domain.ResultStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -53,6 +54,7 @@ class SurveyResultFlowIntegrationTest {
 
         assertEquals(1, generatedCount);
         assertEquals(survey.surveyCode(), result.surveyCode());
+        assertEquals(ResultStatus.READY, result.resultStatus());
         assertEquals("https://cdn.looky.my/results/" + survey.surveyCode() + "/open.png", result.quadrantImageUrls().get("OPEN"));
         assertEquals("https://cdn.looky.my/results/" + survey.surveyCode() + "/blind.png", result.quadrantImageUrls().get("BLIND"));
         assertEquals("https://cdn.looky.my/results/" + survey.surveyCode() + "/hidden.png", result.quadrantImageUrls().get("HIDDEN"));
