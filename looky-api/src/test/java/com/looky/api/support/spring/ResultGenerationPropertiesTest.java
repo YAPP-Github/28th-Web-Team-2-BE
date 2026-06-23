@@ -11,7 +11,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest(classes = LookyApiApplication.class)
-@ActiveProfiles("test")
+@ActiveProfiles("local")
 class ResultGenerationPropertiesTest {
 
     @Value("${looky.result-generation.narrative-model}")

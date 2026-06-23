@@ -1,5 +1,7 @@
 package com.looky.result.persistence;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.looky.question.domain.TraitCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +23,8 @@ import java.util.List;
         @UniqueConstraint(name = "uk_result_answer_adjectives_answer", columnNames = {"result_id", "submission_answer_id"})
 })
 public class ResultAnswerAdjectiveJpaEntity {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,6 +63,17 @@ public class ResultAnswerAdjectiveJpaEntity {
         this.traitCode = answer.traitCode();
         this.questionSnapshot = answer.questionSnapshot();
         this.answerSnapshot = answer.answerSnapshot();
-        this.adjectivesJson = "[\"" + String.join("\",\"", adjectives) + "\"]";
+        this.adjectivesJson = serializeAdjectives(adjectives);
+    }
+
+    private static String serializeAdjectives(List<String> adjectives) {
+        if (adjectives == null) {
+            throw new IllegalArgumentException("adjectives are required");
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(adjectives);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("adjectives must be serializable as JSON", exception);
+        }
     }
 }

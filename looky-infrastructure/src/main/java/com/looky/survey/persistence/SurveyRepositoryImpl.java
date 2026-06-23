@@ -18,8 +18,7 @@ public class SurveyRepositoryImpl implements SurveyRepository {
             ResultStatus.WAITING_SELF_RESPONSE,
             ResultStatus.COLLECTING_PEER_RESPONSES,
             ResultStatus.WAITING_RESULT_OPEN_TIME,
-            ResultStatus.GENERATING,
-            ResultStatus.FAILED
+            ResultStatus.GENERATING
     );
 
     private final SurveyJpaRepository surveyJpaRepository;

@@ -9,3 +9,9 @@ spring:
     init:
       mode: always
       data-locations: classpath:db/data.sql
+
+looky:
+  result-generation:
+    s3:
+      bucket: app-contents-test
+      region: ap-northeast-2

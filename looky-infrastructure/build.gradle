@@ -8,6 +8,7 @@ dependencies {
     implementation 'org.flywaydb:flyway-mysql'
     implementation 'software.amazon.awssdk:s3'
     implementation 'com.openai:openai-java:4.41.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'com.mysql:mysql-connector-j'
 }

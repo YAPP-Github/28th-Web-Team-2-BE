@@ -1,22 +1,24 @@
-FROM gradle:8.14.3-jdk21-alpine AS builder
+FROM eclipse-temurin:25-jdk AS builder
 
 WORKDIR /workspace
 
-COPY --chown=gradle:gradle gradlew gradlew.bat settings.gradle build.gradle ./
-COPY --chown=gradle:gradle gradle ./gradle
-COPY --chown=gradle:gradle auth-api ./auth-api
-COPY --chown=gradle:gradle feed-api ./feed-api
+COPY gradlew gradlew.bat settings.gradle build.gradle ./
+COPY gradle ./gradle
+COPY looky-common ./looky-common
+COPY looky-core ./looky-core
+COPY looky-infrastructure ./looky-infrastructure
+COPY looky-api ./looky-api
 
 RUN chmod +x gradlew
-RUN ./gradlew :feed-api:clean :feed-api:bootJar -x test --no-daemon --info
+RUN ./gradlew :looky-api:bootJar -x test --no-daemon --info
 
-FROM amazoncorretto:21-alpine AS runtime
+FROM eclipse-temurin:25-jre AS runtime
 
 WORKDIR /app
 
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN groupadd --system spring && useradd --system --gid spring spring
 
-COPY --from=builder /workspace/feed-api/build/libs/*.jar app.jar
+COPY --from=builder /workspace/looky-api/build/libs/*.jar app.jar
 
 USER spring
 

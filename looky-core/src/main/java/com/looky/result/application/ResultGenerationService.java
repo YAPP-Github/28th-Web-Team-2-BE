@@ -70,10 +70,10 @@ public class ResultGenerationService {
             if (!isReadyToGenerate(survey, now)) {
                 continue;
             }
-            if (survey.resultStatus() != ResultStatus.GENERATING
-                    && !surveyRepository.markGenerating(survey.id(), resultGenerationPolicy.maxAttempts())) {
+            if (!surveyRepository.markGenerating(survey.id(), resultGenerationPolicy.maxAttempts())) {
                 continue;
             }
+            int attemptNumber = survey.resultGenerationAttemptCount() + 1;
 
             try {
                 if (!resultRepository.hasNarrative(survey.id())) {
@@ -107,10 +107,12 @@ public class ResultGenerationService {
                 LOGGER.log(
                         Level.WARNING,
                         "Result generation failed. surveyId=" + survey.id()
-                                + ", attempt=" + (survey.resultGenerationAttemptCount() + 1),
+                                + ", attempt=" + attemptNumber,
                         exception
                 );
-                markFailed(survey.id());
+                if (attemptNumber >= resultGenerationPolicy.maxAttempts()) {
+                    markFailed(survey.id());
+                }
             }
         }
 

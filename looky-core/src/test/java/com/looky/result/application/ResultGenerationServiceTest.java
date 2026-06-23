@@ -128,7 +128,7 @@ class ResultGenerationServiceTest {
 
     @Test
     void generateReadyResultsReusesExistingNarrativeOnRetry() {
-        SurveyRecord survey = survey(ResultStatus.FAILED, OffsetDateTime.now(clock).minusMinutes(1));
+        SurveyRecord survey = survey(ResultStatus.GENERATING, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
@@ -157,7 +157,7 @@ class ResultGenerationServiceTest {
     }
 
     @Test
-    void generateReadyResultsMarksFailedAndContinuesWhenGeneratorFails() {
+    void generateReadyResultsKeepsGeneratingAndContinuesWhenGeneratorFailsBeforeAttemptsAreExhausted() {
         SurveyRecord failedSurvey = survey(1L, "failcode0001", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         SurveyRecord successSurvey = survey(2L, "b91k2p8xq4z2", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(failedSurvey);
@@ -171,14 +171,35 @@ class ResultGenerationServiceTest {
         int generatedCount = service.generateReadyResults();
 
         assertEquals(1, generatedCount);
-        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.FAILED), surveyRepository.statusUpdates.get(failedSurvey.id()));
+        assertEquals(List.of(ResultStatus.GENERATING), surveyRepository.statusUpdates.get(failedSurvey.id()));
         assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(successSurvey.id()));
         assertFalse(resultRepository.resultsBySurveyId.containsKey(failedSurvey.id()));
         assertTrue(resultRepository.resultsBySurveyId.containsKey(successSurvey.id()));
     }
 
     @Test
-    void generateReadyResultsMarksFailedAndContinuesWhenSaveReadyResultFails() {
+    void generateReadyResultsMarksFailedWhenGeneratorFailsOnLastAttempt() {
+        SurveyRecord failedSurvey = survey(
+                1L,
+                "failcode0001",
+                ResultStatus.GENERATING,
+                OffsetDateTime.now(clock).minusMinutes(1),
+                2
+        );
+        surveyRepository.save(failedSurvey);
+        submissionRepository.completedSelfSurveyIds.add(failedSurvey.id());
+        submissionRepository.completedPeerCounts.put(failedSurvey.id(), 3L);
+        resultGeneratorClient.failSurveyCode = failedSurvey.surveyCode();
+
+        int generatedCount = service.generateReadyResults();
+
+        assertEquals(0, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.FAILED), surveyRepository.statusUpdates.get(failedSurvey.id()));
+        assertFalse(resultRepository.resultsBySurveyId.containsKey(failedSurvey.id()));
+    }
+
+    @Test
+    void generateReadyResultsKeepsGeneratingAndContinuesWhenSaveReadyResultFailsBeforeAttemptsAreExhausted() {
         SurveyRecord failedSurvey = survey(1L, "failcode0001", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         SurveyRecord successSurvey = survey(2L, "b91k2p8xq4z2", ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(failedSurvey);
@@ -192,15 +213,15 @@ class ResultGenerationServiceTest {
         int generatedCount = service.generateReadyResults();
 
         assertEquals(1, generatedCount);
-        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.FAILED), surveyRepository.statusUpdates.get(failedSurvey.id()));
+        assertEquals(List.of(ResultStatus.GENERATING), surveyRepository.statusUpdates.get(failedSurvey.id()));
         assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(successSurvey.id()));
         assertFalse(resultRepository.resultsBySurveyId.containsKey(failedSurvey.id()));
         assertTrue(resultRepository.resultsBySurveyId.containsKey(successSurvey.id()));
     }
 
     @Test
-    void generateReadyResultsRetriesFailedResultWhenAttemptsRemain() {
-        SurveyRecord survey = survey(ResultStatus.FAILED, OffsetDateTime.now(clock).minusMinutes(1));
+    void generateReadyResultsRetriesGeneratingResultWhenAttemptsRemain() {
+        SurveyRecord survey = survey(ResultStatus.GENERATING, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
@@ -213,13 +234,13 @@ class ResultGenerationServiceTest {
     }
 
     @Test
-    void generateReadyResultsDoesNotRetryFailedResultWhenAttemptsAreExhausted() {
+    void generateReadyResultsDoesNotRetryFailedResult() {
         SurveyRecord survey = survey(
                 1L,
                 "b91k2p8xq4z2",
                 ResultStatus.FAILED,
                 OffsetDateTime.now(clock).minusMinutes(1),
-                3
+                1
         );
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
@@ -325,8 +346,7 @@ class ResultGenerationServiceTest {
                             ResultStatus.WAITING_SELF_RESPONSE,
                             ResultStatus.COLLECTING_PEER_RESPONSES,
                             ResultStatus.WAITING_RESULT_OPEN_TIME,
-                            ResultStatus.GENERATING,
-                            ResultStatus.FAILED
+                            ResultStatus.GENERATING
                     ).contains(survey.resultStatus()))
                     .toList();
         }
@@ -343,6 +363,17 @@ class ResultGenerationServiceTest {
                 return false;
             }
             statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(ResultStatus.GENERATING);
+            surveys.put(surveyId, new SurveyRecord(
+                    survey.id(),
+                    survey.userNickname(),
+                    survey.surveyCode(),
+                    survey.surveyStatus(),
+                    ResultStatus.GENERATING,
+                    survey.resultGenerationAttemptCount() + 1,
+                    survey.requiredPeerSubmissionCount(),
+                    survey.resultAvailableAt(),
+                    survey.createdAt()
+            ));
             return true;
         }
 
