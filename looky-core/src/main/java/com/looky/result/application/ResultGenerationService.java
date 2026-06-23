@@ -9,9 +9,13 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Service
 public class ResultGenerationService {
+
+    private static final Logger LOGGER = Logger.getLogger(ResultGenerationService.class.getName());
 
     private final SurveyRepository surveyRepository;
     private final SubmissionRepository submissionRepository;
@@ -71,7 +75,7 @@ public class ResultGenerationService {
         try {
             surveyRepository.updateResultStatus(surveyId, ResultStatus.FAILED);
         } catch (RuntimeException exception) {
-            // Keep the scheduler processing remaining candidates even if failure recording fails.
+            LOGGER.log(Level.SEVERE, "Failed to mark result generation failure. surveyId=" + surveyId, exception);
         }
     }
 }
