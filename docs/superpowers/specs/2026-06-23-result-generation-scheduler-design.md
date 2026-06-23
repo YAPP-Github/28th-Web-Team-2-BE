@@ -80,7 +80,7 @@ core에는 결과 생성 유스케이스를 담당하는 `ResultGenerationServic
 
 ### Infrastructure
 
-- `com.looky.result.persistence.ResultGenerationScheduler`
+- `com.looky.result.scheduler.ResultGenerationScheduler`
   - `@Scheduled(fixedDelayString = "${looky.result-generation.fixed-delay:60000}")`
   - 스케줄링만 담당하고 업무 규칙은 core service에 위임
 
