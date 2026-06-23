@@ -91,6 +91,10 @@ public class SurveyJpaEntity {
         this.surveyStatus = SurveyStatus.COLLECTING;
     }
 
+    public void updateResultStatus(ResultStatus resultStatus) {
+        this.resultStatus = resultStatus;
+    }
+
     public Long getId() {
         return id;
     }

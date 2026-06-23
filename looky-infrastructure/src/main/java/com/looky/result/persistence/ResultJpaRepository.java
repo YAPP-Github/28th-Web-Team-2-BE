@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface ResultJpaRepository extends JpaRepository<ResultJpaEntity, Long> {
     Optional<ResultJpaEntity> findBySurvey_Id(Long surveyId);
+
+    boolean existsBySurvey_Id(Long surveyId);
 }

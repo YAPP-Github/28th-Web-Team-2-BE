@@ -20,6 +20,7 @@ import com.looky.survey.domain.SurveyStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -46,7 +47,8 @@ class SurveyCommandServiceTest {
             surveyRepository,
             questionRepository,
             submissionRepository,
-            clock
+            clock,
+            new SurveyPolicy(Duration.ofHours(24))
     );
 
     @Test
@@ -62,6 +64,21 @@ class SurveyCommandServiceTest {
         assertEquals(ResultStatus.WAITING_SELF_RESPONSE, result.resultStatus());
         assertEquals(3, result.requiredPeerSubmissionCount());
         assertEquals(OffsetDateTime.now(clock).plusHours(24), result.resultAvailableAt());
+    }
+
+    @Test
+    void createSurveyUsesConfiguredResultOpenDelay() {
+        SurveyCommandService zeroDelayService = new SurveyCommandService(
+                surveyRepository,
+                questionRepository,
+                submissionRepository,
+                clock,
+                new SurveyPolicy(Duration.ZERO)
+        );
+
+        SurveyCreatedResult result = zeroDelayService.createSurvey(new CreateSurveyCommand("만두"));
+
+        assertEquals(OffsetDateTime.now(clock), result.resultAvailableAt());
     }
 
     @Test
@@ -176,6 +193,11 @@ class SurveyCommandServiceTest {
         }
 
         @Override
+        public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
+            throw new UnsupportedOperationException("not used in survey command tests");
+        }
+
+        @Override
         public void markCollecting(Long surveyId) {
             SurveyRecord survey = surveys.get(surveyId);
             surveys.put(surveyId, new SurveyRecord(
@@ -188,6 +210,16 @@ class SurveyCommandServiceTest {
                     survey.resultAvailableAt(),
                     survey.createdAt()
             ));
+        }
+
+        @Override
+        public boolean markGenerating(Long surveyId) {
+            throw new UnsupportedOperationException("not used in survey command tests");
+        }
+
+        @Override
+        public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
+            throw new UnsupportedOperationException("not used in survey command tests");
         }
     }
 
