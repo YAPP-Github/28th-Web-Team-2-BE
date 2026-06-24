@@ -3,6 +3,7 @@ package com.looky.result.persistence;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.looky.question.domain.TraitCode;
+import com.looky.submission.domain.SubmitterType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -40,6 +41,13 @@ public class ResultAnswerAdjectiveJpaEntity {
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
+    @Column(name = "respondent_label", length = 32)
+    private String respondentLabel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "submitter_type", nullable = false, length = 20)
+    private SubmitterType submitterType;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "trait_code", nullable = false, length = 40)
     private TraitCode traitCode;
@@ -60,6 +68,8 @@ public class ResultAnswerAdjectiveJpaEntity {
         this.result = result;
         this.submissionAnswerId = answer.submissionAnswerId();
         this.questionId = answer.questionId();
+        this.respondentLabel = answer.respondentLabel();
+        this.submitterType = answer.submitterType();
         this.traitCode = answer.traitCode();
         this.questionSnapshot = answer.questionSnapshot();
         this.answerSnapshot = answer.answerSnapshot();

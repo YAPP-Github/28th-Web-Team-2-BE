@@ -21,8 +21,9 @@ public class TestResultNarrativeClient implements ResultNarrativeClient {
                 .collect(java.util.stream.Collectors.toMap(ResultAnswerAdjectiveRecord::submissionAnswerId, answer -> List.of("성찰적인")));
         Map<ResultQuadrantType, ResultNarrative.QuadrantNarrative> quadrants = new EnumMap<>(ResultQuadrantType.class);
         for (ResultQuadrantType quadrant : ResultQuadrantType.values()) {
-            quadrants.put(quadrant, new ResultNarrative.QuadrantNarrative(quadrant.name() + " 해석", quadrant.name() + " image prompt"));
+            quadrants.put(quadrant, new ResultNarrative.QuadrantNarrative(
+                    quadrant.name() + " 탐험가", List.of("호기심 많은", "새로운 거 좋아"), quadrant.name() + " 해석", quadrant.name() + " image prompt"));
         }
-        return new ResultNarrative(adjectives, quadrants);
+        return new ResultNarrative(new ResultNarrative.Overview("마음을 잘 여는 사람", "종합 분석", "새로운 대화를 시작해보세요."), adjectives, quadrants);
     }
 }

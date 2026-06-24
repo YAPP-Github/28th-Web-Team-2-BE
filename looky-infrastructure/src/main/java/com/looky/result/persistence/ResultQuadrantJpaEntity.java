@@ -3,6 +3,8 @@ package com.looky.result.persistence;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.result.domain.QuadrantWorkStatus;
 import com.looky.result.application.ResultQuadrantRecord;
+import com.looky.result.application.ResultNarrative;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,12 +17,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.List;
 
 @Entity
 @Table(name = "result_quadrants", uniqueConstraints = {
         @UniqueConstraint(name = "uk_result_quadrants_result_type", columnNames = {"result_id", "quadrant_type"})
 })
 public class ResultQuadrantJpaEntity {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,6 +46,10 @@ public class ResultQuadrantJpaEntity {
 
     @Column(name = "image_prompt", columnDefinition = "text")
     private String imagePrompt;
+    @Column(name = "definition_keyword", length = 120)
+    private String definitionKeyword;
+    @Column(name = "adjective_keywords_json", columnDefinition = "text")
+    private String adjectiveKeywordsJson;
 
     @Column(name = "s3_object_key", length = 1024)
     private String s3ObjectKey;
@@ -78,6 +86,12 @@ public class ResultQuadrantJpaEntity {
         this.imagePrompt = imagePrompt;
         this.workStatus = QuadrantWorkStatus.NARRATIVE_READY;
     }
+    public ResultQuadrantJpaEntity(ResultJpaEntity result, ResultQuadrantType type, ResultNarrative.QuadrantNarrative narrative) {
+        this(result, type, narrative.interpretation(), narrative.imagePrompt());
+        this.definitionKeyword = narrative.definitionKeyword();
+        try { this.adjectiveKeywordsJson = OBJECT_MAPPER.writeValueAsString(narrative.adjectiveKeywords()); }
+        catch (Exception exception) { throw new IllegalArgumentException("Unable to serialize adjective keywords", exception); }
+    }
 
     public ResultQuadrantJpaEntity(ResultJpaEntity result, ResultQuadrantRecord quadrant) {
         this(result, quadrant.quadrantType(), quadrant.imageUrl());
@@ -95,6 +109,12 @@ public class ResultQuadrantJpaEntity {
 
     public String getInterpretation() { return interpretation; }
     public String getImagePrompt() { return imagePrompt; }
+    public String getDefinitionKeyword() { return definitionKeyword; }
+    public List<String> getAdjectiveKeywords() {
+        if (adjectiveKeywordsJson == null) return List.of();
+        try { return List.of(OBJECT_MAPPER.readValue(adjectiveKeywordsJson, String[].class)); }
+        catch (Exception exception) { throw new IllegalStateException("Unable to read adjective keywords", exception); }
+    }
     public String getS3ObjectKey() { return s3ObjectKey; }
     public QuadrantWorkStatus getWorkStatus() { return workStatus; }
     public int getAttemptCount() { return attemptCount; }

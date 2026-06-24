@@ -3,6 +3,7 @@ package com.looky.result.persistence;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.looky.question.domain.TraitCode;
 import com.looky.result.application.ResultAnswerAdjectiveRecord;
+import com.looky.submission.domain.SubmitterType;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -19,6 +20,8 @@ class ResultAnswerAdjectiveJpaEntityTest {
         var answer = new ResultAnswerAdjectiveRecord(
                 1L,
                 10L,
+                SubmitterType.SELF,
+                "SELF",
                 TraitCode.OPENNESS,
                 "내가 좋아하는 표현은?",
                 "따옴표와 역슬래시를 포함한 답변",

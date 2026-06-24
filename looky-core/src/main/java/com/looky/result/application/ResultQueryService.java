@@ -7,6 +7,7 @@ import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
 import com.looky.survey.application.ResultStatusResolver;
 import com.looky.survey.application.dto.SurveyResultResult;
+import com.looky.survey.application.dto.SurveyResultQuadrant;
 import com.looky.survey.domain.ResultStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,7 @@ public class ResultQueryService {
                     survey.surveyCode(),
                     resultStatus,
                     null,
-                    null
+                    null, null, null, null, null
             );
         }
 
@@ -60,8 +61,22 @@ public class ResultQueryService {
                         ResultQuadrantType.BLIND.name(), interpretations.get(ResultQuadrantType.BLIND),
                         ResultQuadrantType.HIDDEN.name(), interpretations.get(ResultQuadrantType.HIDDEN),
                         ResultQuadrantType.UNKNOWN.name(), interpretations.get(ResultQuadrantType.UNKNOWN)
-                )
+                ),
+                result.overview() == null ? null : result.overview().keyword(),
+                result.overview() == null ? null : result.overview().analysis(),
+                result.overview() == null ? null : result.overview().tip(),
+                toQuadrants(result, imageUrls)
         );
+    }
+
+    private Map<String, SurveyResultQuadrant> toQuadrants(ResultRecord result, Map<ResultQuadrantType, String> imageUrls) {
+        if (result.overview() == null || result.quadrants().stream().anyMatch(q -> q.definitionKeyword() == null || q.adjectiveKeywords().size() != 2)) return null;
+        Map<String, SurveyResultQuadrant> quadrants = new java.util.LinkedHashMap<>();
+        for (ResultQuadrantType type : ResultQuadrantType.values()) {
+            ResultQuadrantRecord quadrant = result.quadrants().stream().filter(q -> q.quadrantType() == type).findFirst().orElseThrow();
+            quadrants.put(type.name(), new SurveyResultQuadrant(quadrant.definitionKeyword(), quadrant.adjectiveKeywords(), quadrant.interpretation(), imageUrls.get(type)));
+        }
+        return Map.copyOf(quadrants);
     }
 
     private Map<ResultQuadrantType, String> toQuadrantImageUrls(ResultRecord result) {

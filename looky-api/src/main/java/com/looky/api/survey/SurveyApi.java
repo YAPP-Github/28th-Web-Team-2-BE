@@ -158,6 +158,17 @@ public interface SurveyApi {
                                                                   "BLIND": "타인이 먼저 발견하는 특성",
                                                                   "HIDDEN": "혼자 알고 있는 내면",
                                                                   "UNKNOWN": "아직 발견되지 않은 가능성"
+                                                                },
+                                                                "overallKeyword": "마음을 잘 여는 사람",
+                                                                "overallAnalysis": "사람들과 자연스럽게 연결되며 새로운 관계에도 열린 태도를 보입니다.",
+                                                                "actionTip": "이번 주에는 낯선 사람에게 먼저 가벼운 인사를 건네보는 건 어때요?",
+                                                                "quadrants": {
+                                                                  "OPEN": {
+                                                                    "definitionKeyword": "탐험가",
+                                                                    "adjectiveKeywords": ["탐험 실험 다 좋아 인간", "새로운 거? 무조건 해봐야지"],
+                                                                    "interpretation": "서로가 알고 있는 호기심과 개방성입니다.",
+                                                                    "imageUrl": "https://cdn.looky.my/results/b91k2p8xq4z2/open.png"
+                                                                  }
                                                                 }
                                                               }
                                                             }

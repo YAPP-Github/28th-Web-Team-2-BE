@@ -102,22 +102,30 @@ class SurveyResultFlowIntegrationTest {
     }
 
     @Test
-    void resultGenerationSourceReaderReturnsOnlyCompletedAnswerSnapshots() {
+    void resultGenerationSourceReaderKeepsSelfAndPeerAnswerSourcesSeparate() {
         SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
 
-        SubmissionStartedResult completedSubmission = surveyService.startSubmission(survey.surveyCode());
-        surveyService.submitAnswers(completedSubmission.submissionId(), answersFrom(completedSubmission));
-        surveyService.startSubmission(survey.surveyCode());
+        SubmissionStartedResult selfSubmission = surveyService.startSubmission(survey.surveyCode());
+        surveyService.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
+        for (int i = 0; i < 3; i++) {
+            SubmissionStartedResult peerSubmission = surveyService.startSubmission(survey.surveyCode());
+            surveyService.submitAnswers(peerSubmission.submissionId(), answersFrom(peerSubmission));
+        }
 
         var answers = resultGenerationSourceReader.readCompletedAnswers(survey.surveyId());
 
-        assertEquals(8, answers.size());
-        assertEquals(8, answers.stream().map(answer -> answer.submissionAnswerId()).distinct().count());
-        assertEquals(8, answers.stream().map(answer -> answer.questionId()).distinct().count());
-        assertEquals(2, answers.stream().filter(answer -> answer.traitCode() == TraitCode.OPENNESS).count());
-        assertEquals(2, answers.stream().filter(answer -> answer.traitCode() == TraitCode.CONSCIENTIOUSNESS).count());
-        assertEquals(2, answers.stream().filter(answer -> answer.traitCode() == TraitCode.EXTRAVERSION).count());
-        assertEquals(2, answers.stream().filter(answer -> answer.traitCode() == TraitCode.AGREEABLENESS).count());
+        assertEquals(32, answers.size());
+        assertEquals(32, answers.stream().map(answer -> answer.submissionAnswerId()).distinct().count());
+        assertEquals(8, answers.stream().filter(answer -> answer.submitterType() == SubmitterType.SELF).count());
+        assertEquals(24, answers.stream().filter(answer -> answer.submitterType() == SubmitterType.PEER).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("SELF")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("PEER_1")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("PEER_2")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("PEER_3")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.OPENNESS).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.CONSCIENTIOUSNESS).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.EXTRAVERSION).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.AGREEABLENESS).count());
         assertEquals(false, answers.stream().anyMatch(answer -> answer.questionSnapshot().isBlank()));
         assertEquals(false, answers.stream().anyMatch(answer -> answer.answerSnapshot().isBlank()));
         assertEquals(false, answers.stream().anyMatch(answer -> !answer.adjectives().isEmpty()));

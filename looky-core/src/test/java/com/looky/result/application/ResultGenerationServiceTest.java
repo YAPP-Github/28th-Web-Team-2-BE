@@ -68,14 +68,15 @@ class ResultGenerationServiceTest {
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
-        sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
+        sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, SubmitterType.SELF, "SELF", com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
         narrativeClient.narrative = new ResultNarrative(
+                new ResultNarrative.Overview("마음을 잘 여는 사람", "종합 분석", "새로운 대화를 시작해보세요."),
                 Map.of(101L, List.of("호기심 많은")),
                 Map.of(
-                        ResultQuadrantType.OPEN, new ResultNarrative.QuadrantNarrative("공유 강점", "open"),
-                        ResultQuadrantType.BLIND, new ResultNarrative.QuadrantNarrative("타인이 보는 강점", "blind"),
-                        ResultQuadrantType.HIDDEN, new ResultNarrative.QuadrantNarrative("내면", "hidden"),
-                        ResultQuadrantType.UNKNOWN, new ResultNarrative.QuadrantNarrative("가능성", "unknown")
+                        ResultQuadrantType.OPEN, new ResultNarrative.QuadrantNarrative("탐험가", List.of("호기심 많은", "새로운 거 좋아"), "공유 강점", "open"),
+                        ResultQuadrantType.BLIND, new ResultNarrative.QuadrantNarrative("관찰자", List.of("따뜻한", "다정한"), "타인이 보는 강점", "blind"),
+                        ResultQuadrantType.HIDDEN, new ResultNarrative.QuadrantNarrative("사색가", List.of("차분한", "깊은"), "내면", "hidden"),
+                        ResultQuadrantType.UNKNOWN, new ResultNarrative.QuadrantNarrative("가능성", List.of("새로운", "미지의"), "가능성", "unknown")
                 )
         );
 
@@ -513,7 +514,7 @@ class ResultGenerationServiceTest {
     }
 
     private static final class FakeResultNarrativeClient implements ResultNarrativeClient {
-        private ResultNarrative narrative = new ResultNarrative(Map.of(), Map.of());
+        private ResultNarrative narrative = new ResultNarrative(new ResultNarrative.Overview("", "", ""), Map.of(), Map.of());
         private int calls;
 
         @Override

@@ -30,6 +30,13 @@ public class ResultJpaEntity {
     @JoinColumn(name = "survey_id", nullable = false)
     private SurveyJpaEntity survey;
 
+    @Column(name = "overall_keyword", length = 120)
+    private String overallKeyword;
+    @Column(name = "overall_analysis", columnDefinition = "text")
+    private String overallAnalysis;
+    @Column(name = "action_tip", columnDefinition = "text")
+    private String actionTip;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -66,5 +73,11 @@ public class ResultJpaEntity {
 
     public SurveyJpaEntity getSurvey() {
         return survey;
+    }
+    public String getOverallKeyword() { return overallKeyword; }
+    public String getOverallAnalysis() { return overallAnalysis; }
+    public String getActionTip() { return actionTip; }
+    public void saveOverview(com.looky.result.application.ResultNarrative.Overview overview) {
+        this.overallKeyword = overview.keyword(); this.overallAnalysis = overview.analysis(); this.actionTip = overview.tip();
     }
 }

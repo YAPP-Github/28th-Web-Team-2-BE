@@ -77,12 +77,13 @@ public class ResultRepositoryImpl implements ResultRepository {
         SurveyJpaEntity survey = surveyJpaRepository.findById(surveyId).orElseThrow();
         ResultJpaEntity result = resultJpaRepository.findBySurvey_Id(surveyId)
                 .orElseGet(() -> resultJpaRepository.save(new ResultJpaEntity(survey, now)));
+        result.saveOverview(narrative.overview());
         resultAnswerAdjectiveJpaRepository.saveAll(answers.stream()
                 .map(answer -> new ResultAnswerAdjectiveJpaEntity(result, answer, narrative.adjectivesBySubmissionAnswerId().get(answer.submissionAnswerId())))
                 .toList());
         if (resultQuadrantJpaRepository.findByResult_Id(result.getId()).isEmpty()) {
             resultQuadrantJpaRepository.saveAll(narrative.quadrants().entrySet().stream()
-                    .map(entry -> new ResultQuadrantJpaEntity(result, entry.getKey(), entry.getValue().interpretation(), entry.getValue().imagePrompt()))
+                    .map(entry -> new ResultQuadrantJpaEntity(result, entry.getKey(), entry.getValue()))
                     .toList());
         }
     }
@@ -110,6 +111,8 @@ public class ResultRepositoryImpl implements ResultRepository {
         return new ResultRecord(
                 entity.getId(),
                 entity.getSurvey().getId(),
+                entity.getOverallKeyword() == null ? null : new com.looky.result.application.ResultOverviewRecord(
+                        entity.getOverallKeyword(), entity.getOverallAnalysis(), entity.getActionTip()),
                 resultQuadrantJpaRepository.findByResult_Id(entity.getId()).stream()
                         .map(quadrant -> new ResultQuadrantRecord(
                                 quadrant.getQuadrantType(),
@@ -118,7 +121,9 @@ public class ResultRepositoryImpl implements ResultRepository {
                                 quadrant.getImagePrompt(),
                                 quadrant.getS3ObjectKey(),
                                 quadrant.getWorkStatus(),
-                                quadrant.getAttemptCount()
+                                quadrant.getAttemptCount(),
+                                quadrant.getDefinitionKeyword(),
+                                quadrant.getAdjectiveKeywords()
                         ))
                         .toList()
         );

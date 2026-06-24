@@ -33,7 +33,11 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
                                 .model(narrativeModel)
                                 .instructions("""
                                         You are a Korean Johari-window analyst. Extract concise Korean adjectives for every survey answer.
+                                        SELF answers are the survey owner's self-perception. PEER answers are other people's perception of the owner.
+                                        Compare the two groups when classifying evidence: OPEN is shared by SELF and PEER, BLIND is supported by PEER but not SELF, HIDDEN is supported by SELF but not PEER, and UNKNOWN is a plausible potential not established by either group.
+                                        Return one overall Korean keyword, one overall Korean analysis, and one actionable Korean tip titled "이렇게 해보는 건 어때요?".
                                         Then classify all evidence into exactly OPEN, BLIND, HIDDEN, and UNKNOWN.
+                                        For each quadrant, return one character-like Korean definition keyword, exactly two short conversational Korean adjective keywords, one Korean interpretation, and one English abstract image prompt.
                                         For every quadrant, write a concise Korean interpretation and an English image prompt for an abstract, non-identifying illustration.
                                         Do not include names, raw survey text, or sensitive personal data in interpretations or image prompts.
                                         """)
@@ -50,8 +54,11 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
     }
 
     static ResultNarrative toResultNarrative(OpenAiNarrativeOutput output, List<Long> expectedAnswerIds) {
-        if (output == null || output.answerAdjectives == null || output.quadrants == null) {
+        if (output == null || output.overall == null || output.answerAdjectives == null || output.quadrants == null) {
             throw new IllegalArgumentException("OpenAI narrative response is incomplete");
+        }
+        if (isBlank(output.overall.keyword) || isBlank(output.overall.analysis) || isBlank(output.overall.tip)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overview");
         }
 
         Map<Long, List<String>> adjectivesByAnswerId = new LinkedHashMap<>();
@@ -69,35 +76,40 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
         }
 
         Map<ResultQuadrantType, ResultNarrative.QuadrantNarrative> quadrants = new EnumMap<>(ResultQuadrantType.class);
-        for (QuadrantNarrative quadrant : output.quadrants) {
-            if (quadrant == null || isBlank(quadrant.quadrantType) || isBlank(quadrant.interpretation) || isBlank(quadrant.imagePrompt)) {
-                throw new IllegalArgumentException("OpenAI narrative contains an invalid quadrant");
-            }
-            ResultQuadrantType type;
-            try {
-                type = ResultQuadrantType.valueOf(quadrant.quadrantType);
-            } catch (IllegalArgumentException exception) {
-                throw new IllegalArgumentException("OpenAI narrative contains an unknown quadrant", exception);
-            }
-            if (quadrants.put(type, new ResultNarrative.QuadrantNarrative(quadrant.interpretation, quadrant.imagePrompt)) != null) {
-                throw new IllegalArgumentException("OpenAI narrative contains duplicate quadrants");
-            }
+        putQuadrant(quadrants, ResultQuadrantType.OPEN, output.quadrants.open);
+        putQuadrant(quadrants, ResultQuadrantType.BLIND, output.quadrants.blind);
+        putQuadrant(quadrants, ResultQuadrantType.HIDDEN, output.quadrants.hidden);
+        putQuadrant(quadrants, ResultQuadrantType.UNKNOWN, output.quadrants.unknown);
+        return new ResultNarrative(
+                new ResultNarrative.Overview(output.overall.keyword, output.overall.analysis, output.overall.tip),
+                Map.copyOf(adjectivesByAnswerId),
+                Map.copyOf(quadrants)
+        );
+    }
+
+    private static void putQuadrant(Map<ResultQuadrantType, ResultNarrative.QuadrantNarrative> quadrants, ResultQuadrantType type, QuadrantNarrative quadrant) {
+        if (quadrant == null || isBlank(quadrant.definitionKeyword) || quadrant.adjectiveKeywords == null || quadrant.adjectiveKeywords.size() != 2
+                || quadrant.adjectiveKeywords.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)
+                || isBlank(quadrant.interpretation) || isBlank(quadrant.imagePrompt)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid " + type + " quadrant");
         }
-        if (quadrants.size() != ResultQuadrantType.values().length) {
-            throw new IllegalArgumentException("OpenAI narrative does not contain every quadrant");
-        }
-        return new ResultNarrative(Map.copyOf(adjectivesByAnswerId), Map.copyOf(quadrants));
+        quadrants.put(type, new ResultNarrative.QuadrantNarrative(
+                quadrant.definitionKeyword, List.copyOf(quadrant.adjectiveKeywords), quadrant.interpretation, quadrant.imagePrompt));
     }
 
     private static String prompt(List<ResultAnswerAdjectiveRecord> answers) {
         return answers.stream()
                 .map(answer -> """
                         submissionAnswerId: %d
+                        respondentLabel: %s
+                        submitterType: %s
                         traitCode: %s
                         question: %s
                         answer: %s
                         """.formatted(
                         answer.submissionAnswerId(),
+                        answer.respondentLabel(),
+                        answer.submitterType(),
                         answer.traitCode(),
                         answer.questionSnapshot(),
                         answer.answerSnapshot()
@@ -110,8 +122,22 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
     }
 
     public static class OpenAiNarrativeOutput {
+        public OverallNarrative overall;
         public List<AnswerAdjectives> answerAdjectives;
-        public List<QuadrantNarrative> quadrants;
+        public Quadrants quadrants;
+    }
+
+    public static class OverallNarrative {
+        public String keyword;
+        public String analysis;
+        public String tip;
+    }
+
+    public static class Quadrants {
+        public QuadrantNarrative open;
+        public QuadrantNarrative blind;
+        public QuadrantNarrative hidden;
+        public QuadrantNarrative unknown;
     }
 
     public static class AnswerAdjectives {
@@ -120,7 +146,8 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
     }
 
     public static class QuadrantNarrative {
-        public String quadrantType;
+        public String definitionKeyword;
+        public List<String> adjectiveKeywords;
         public String interpretation;
         public String imagePrompt;
     }
