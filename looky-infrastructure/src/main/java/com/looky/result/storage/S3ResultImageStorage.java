@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Component
-@Profile("!test")
+@Profile("!test & !local")
 public class S3ResultImageStorage implements ResultImageStorage {
     private final S3Client s3Client; private final String bucket;
     public S3ResultImageStorage(S3Client s3Client, @Value("${looky.result-generation.s3.bucket}") String bucket) { this.s3Client = s3Client; this.bucket = bucket; }

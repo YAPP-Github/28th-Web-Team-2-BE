@@ -45,4 +45,15 @@ class OpenApiAndHealthIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/surveys/{surveyCode}/status']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/surveys/{surveyCode}/result']").exists());
     }
+
+    @Test
+    void apiDocsUseForwardedHeadersForGeneratedServerUrl() throws Exception {
+        mockMvc.perform(get("/v3/api-docs")
+                        .header("Host", "api.looky.my")
+                        .header("X-Forwarded-Host", "api.looky.my")
+                        .header("X-Forwarded-Proto", "https")
+                        .header("X-Forwarded-Port", "443"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.servers[0].url").value("https://api.looky.my"));
+    }
 }

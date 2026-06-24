@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@Profile("test")
+@Profile({"test", "local"})
 public class TestResultNarrativeClient implements ResultNarrativeClient {
 
     @Override

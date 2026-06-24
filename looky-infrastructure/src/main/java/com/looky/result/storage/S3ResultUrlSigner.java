@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import java.time.Duration;
 
 @Component
-@Profile("!test")
+@Profile("!test & !local")
 public class S3ResultUrlSigner implements ResultUrlSigner {
     private final S3Presigner s3Presigner; private final String bucket; private final Duration ttl;
     public S3ResultUrlSigner(S3Presigner s3Presigner, @Value("${looky.result-generation.s3.bucket}") String bucket, @Value("${looky.result-generation.presigned-url-ttl}") Duration ttl) { this.s3Presigner = s3Presigner; this.bucket = bucket; this.ttl = ttl; }

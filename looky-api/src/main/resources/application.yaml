@@ -1,6 +1,30 @@
+server:
+  forward-headers-strategy: framework
+
 looky:
   survey:
     result-open-delay-hours: 24
+  cors:
+    allowed-origin-patterns:
+      - http://localhost:3000
+      - http://localhost:*
+      - http://127.0.0.1:*
+      - http://192.168.45.187:3000
+      - https://looky.my
+      - https://www.looky.my
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - "*"
+    exposed-headers:
+      - Location
+    allow-credentials: true
+    max-age-seconds: 3600
   result-generation:
     fixed-delay: 60000
     max-attempts: 3

@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Component
-@Profile("!test")
+@Profile("!test & !local")
 public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
 
     private final String narrativeModel;

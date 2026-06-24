@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("test")
+@Profile({"test", "local"})
 public class TestResultImageStorage implements ResultImageStorage {
     @Override
     public String upload(String surveyCode, ResultQuadrantType quadrantType, byte[] imageBytes) {

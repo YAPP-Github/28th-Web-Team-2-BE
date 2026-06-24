@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.Base64;
 
 @Component
-@Profile("!test")
+@Profile("!test & !local")
 public class OpenAiResultImageClient implements ResultImageClient {
 
     private final String imageModel;

@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-@Profile("test")
+@Profile({"test", "local"})
 public class TestResultImageClient implements ResultImageClient {
 
     private final boolean failBlindOnce;
