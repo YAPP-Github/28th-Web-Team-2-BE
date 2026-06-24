@@ -3,7 +3,7 @@ server:
 
 looky:
   survey:
-    result-open-delay-hours: 24
+    result-open-delay-hours: 0
   cors:
     allowed-origin-patterns:
       - http://localhost:3000
