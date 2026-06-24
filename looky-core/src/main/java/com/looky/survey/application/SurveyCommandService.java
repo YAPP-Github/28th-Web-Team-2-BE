@@ -18,6 +18,7 @@ import com.looky.survey.application.dto.SurveyCreatedResult;
 import com.looky.survey.application.dto.SurveyStatusResult;
 import com.looky.survey.domain.ResultStatus;
 import com.looky.survey.domain.SurveyStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Arrays;
 
 @Service
+@RequiredArgsConstructor
 public class SurveyCommandService implements SurveyService {
 
     private static final int QUESTION_COUNT_PER_TRAIT = 2;
@@ -44,22 +46,6 @@ public class SurveyCommandService implements SurveyService {
     private final SurveyPolicy surveyPolicy;
     private final ResultStatusResolver resultStatusResolver;
     private final SecureRandom random = new SecureRandom();
-
-    public SurveyCommandService(
-            SurveyRepository surveyRepository,
-            QuestionRepository questionRepository,
-            SubmissionRepository submissionRepository,
-            Clock clock,
-            SurveyPolicy surveyPolicy,
-            ResultStatusResolver resultStatusResolver
-    ) {
-        this.surveyRepository = surveyRepository;
-        this.questionRepository = questionRepository;
-        this.submissionRepository = submissionRepository;
-        this.clock = clock;
-        this.surveyPolicy = surveyPolicy;
-        this.resultStatusResolver = resultStatusResolver;
-    }
 
     @Override
     public SurveyCreatedResult createSurvey(CreateSurveyCommand command) {

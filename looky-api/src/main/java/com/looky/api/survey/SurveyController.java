@@ -12,6 +12,7 @@ import com.looky.result.application.ResultQueryService;
 import com.looky.survey.application.SurveyService;
 import com.looky.survey.application.dto.CreateSurveyCommand;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,15 +25,11 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/api/v1")
+@RequiredArgsConstructor
 public class SurveyController implements SurveyApi {
 
     private final SurveyService surveyService;
     private final ResultQueryService resultQueryService;
-
-    public SurveyController(SurveyService surveyService, ResultQueryService resultQueryService) {
-        this.surveyService = surveyService;
-        this.resultQueryService = resultQueryService;
-    }
 
     @Override
     @PostMapping("/surveys")

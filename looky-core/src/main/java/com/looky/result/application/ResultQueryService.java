@@ -8,6 +8,7 @@ import com.looky.survey.application.SurveyRepository;
 import com.looky.survey.application.ResultStatusResolver;
 import com.looky.survey.application.dto.SurveyResultResult;
 import com.looky.survey.domain.ResultStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,25 +16,13 @@ import java.util.EnumMap;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class ResultQueryService {
 
     private final SurveyRepository surveyRepository;
     private final ResultRepository resultRepository;
     private final ResultStatusResolver resultStatusResolver;
     private final ResultUrlSigner resultUrlSigner;
-
-    @Autowired
-    public ResultQueryService(
-            SurveyRepository surveyRepository,
-            ResultRepository resultRepository,
-            ResultStatusResolver resultStatusResolver,
-            ResultUrlSigner resultUrlSigner
-    ) {
-        this.surveyRepository = surveyRepository;
-        this.resultRepository = resultRepository;
-        this.resultStatusResolver = resultStatusResolver;
-        this.resultUrlSigner = resultUrlSigner;
-    }
 
     public ResultQueryService(SurveyRepository surveyRepository, ResultRepository resultRepository, ResultStatusResolver resultStatusResolver) {
         this(surveyRepository, resultRepository, resultStatusResolver, objectKey -> objectKey);

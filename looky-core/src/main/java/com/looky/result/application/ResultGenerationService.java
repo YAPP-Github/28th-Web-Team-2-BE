@@ -4,9 +4,10 @@ import com.looky.submission.application.SubmissionRepository;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
 import com.looky.survey.domain.ResultStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.looky.result.domain.QuadrantWorkStatus;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -15,6 +16,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Service
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class ResultGenerationService {
 
     private static final Logger LOGGER = Logger.getLogger(ResultGenerationService.class.getName());
@@ -41,24 +43,6 @@ public class ResultGenerationService {
             Clock clock
     ) {
         this(surveyRepository, submissionRepository, resultRepository, resultGeneratorClient, sourceReader, narrativeClient, resultGenerationPolicy, clock, null, null);
-    }
-
-    @Autowired
-    public ResultGenerationService(
-            SurveyRepository surveyRepository, SubmissionRepository submissionRepository, ResultRepository resultRepository,
-            ResultGeneratorClient resultGeneratorClient, ResultGenerationSourceReader sourceReader, ResultNarrativeClient narrativeClient,
-            ResultGenerationPolicy resultGenerationPolicy, Clock clock, ResultImageClient resultImageClient, ResultImageStorage resultImageStorage
-    ) {
-        this.surveyRepository = surveyRepository;
-        this.submissionRepository = submissionRepository;
-        this.resultRepository = resultRepository;
-        this.resultGeneratorClient = resultGeneratorClient;
-        this.sourceReader = sourceReader;
-        this.narrativeClient = narrativeClient;
-        this.resultGenerationPolicy = resultGenerationPolicy;
-        this.clock = clock;
-        this.resultImageClient = resultImageClient;
-        this.resultImageStorage = resultImageStorage;
     }
 
     public int generateReadyResults() {
