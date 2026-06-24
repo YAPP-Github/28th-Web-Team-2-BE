@@ -17,3 +17,5 @@ looky:
     s3:
       bucket: ${LOOKY_RESULT_S3_BUCKET}
       region: ${AWS_REGION:ap-northeast-2}
+server:
+  forward-headers-strategy: framework
