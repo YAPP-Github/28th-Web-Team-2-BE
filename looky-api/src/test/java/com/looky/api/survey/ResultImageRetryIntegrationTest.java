@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = LookyApiApplication.class, properties = {
-        "looky.survey.result-open-delay-hours=0",
+        "looky.survey.result-open-delay=0m",
         "looky.result-generation.fixed-delay=3600000",
         "looky.test.fail-blind-image-once=true"
 })
