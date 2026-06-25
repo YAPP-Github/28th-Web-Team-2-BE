@@ -173,7 +173,9 @@ class ResultQueryServiceTest {
                 0,
                 3,
                 NOW.plusHours(24),
-                NOW
+                NOW,
+                "pomang",
+                "v1"
         );
     }
 
@@ -185,7 +187,15 @@ class ResultQueryServiceTest {
         }
 
         @Override
-        public SurveyRecord saveNewSurvey(String userNickname, String surveyCode, int requiredPeerSubmissionCount, OffsetDateTime now, OffsetDateTime resultAvailableAt) {
+        public SurveyRecord saveNewSurvey(
+                String userNickname,
+                String surveyCode,
+                int requiredPeerSubmissionCount,
+                OffsetDateTime now,
+                OffsetDateTime resultAvailableAt,
+                String characterPackKey,
+                String characterPackVersion
+        ) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
 
@@ -246,7 +256,7 @@ class ResultQueryServiceTest {
         }
 
         @Override
-        public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey) {
+        public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey, String selectedVariantKey) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
 

@@ -1,5 +1,7 @@
 package com.looky.survey.application;
 
+import com.looky.characterpack.application.CharacterPackRepository;
+import com.looky.characterpack.application.CharacterPackSnapshot;
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
 import com.looky.question.application.QuestionRecord;
@@ -47,10 +49,12 @@ class SurveyCommandServiceTest {
     private final FakeSurveyRepository surveyRepository = new FakeSurveyRepository();
     private final FakeQuestionRepository questionRepository = new FakeQuestionRepository();
     private final FakeSubmissionRepository submissionRepository = new FakeSubmissionRepository();
+    private final FakeCharacterPackRepository characterPackRepository = new FakeCharacterPackRepository();
     private final SurveyCommandService service = new SurveyCommandService(
             surveyRepository,
             questionRepository,
             submissionRepository,
+            characterPackRepository,
             clock,
             new SurveyPolicy(Duration.ofHours(24)),
             new ResultStatusResolver(submissionRepository, clock)
@@ -71,11 +75,22 @@ class SurveyCommandServiceTest {
     }
 
     @Test
+    void createSurveySnapshotsActiveCharacterPack() {
+        service.createSurvey(new CreateSurveyCommand("만두"));
+
+        SurveyRecord savedSurvey = surveyRepository.lastSavedSurvey();
+
+        assertEquals("pomang", savedSurvey.characterPackKey());
+        assertEquals("v1", savedSurvey.characterPackVersion());
+    }
+
+    @Test
     void createSurveyUsesConfiguredResultOpenDelay() {
         SurveyCommandService zeroDelayService = new SurveyCommandService(
                 surveyRepository,
                 questionRepository,
                 submissionRepository,
+                characterPackRepository,
                 clock,
                 new SurveyPolicy(Duration.ZERO),
                 new ResultStatusResolver(submissionRepository, clock)
@@ -93,6 +108,7 @@ class SurveyCommandServiceTest {
                 surveyRepository,
                 questionRepository,
                 submissionRepository,
+                characterPackRepository,
                 clock,
                 new SurveyPolicy(Duration.ofHours(24)),
                 new ResultStatusResolver(submissionRepository, clock),
@@ -143,6 +159,7 @@ class SurveyCommandServiceTest {
                 surveyRepository,
                 questionRepository,
                 submissionRepository,
+                characterPackRepository,
                 clock,
                 new SurveyPolicy(Duration.ofHours(24)),
                 new ResultStatusResolver(submissionRepository, clock),
@@ -262,12 +279,13 @@ class SurveyCommandServiceTest {
                 SurveyRepository surveyRepository,
                 com.looky.question.application.QuestionRepository questionRepository,
                 SubmissionRepository submissionRepository,
+                CharacterPackRepository characterPackRepository,
                 Clock clock,
                 SurveyPolicy surveyPolicy,
                 ResultStatusResolver resultStatusResolver,
                 List<String> codes
         ) {
-            super(surveyRepository, questionRepository, submissionRepository, clock, surveyPolicy, resultStatusResolver);
+            super(surveyRepository, questionRepository, submissionRepository, characterPackRepository, clock, surveyPolicy, resultStatusResolver);
             this.codes = new ArrayDeque<>(codes);
         }
 
@@ -281,9 +299,21 @@ class SurveyCommandServiceTest {
         private long sequence = 1;
         private final Map<Long, SurveyRecord> surveys = new LinkedHashMap<>();
         private final Set<String> duplicateSurveyCodes = new HashSet<>();
+        
+        SurveyRecord lastSavedSurvey() {
+            return surveys.get(sequence - 1);
+        }
 
         @Override
-        public SurveyRecord saveNewSurvey(String userNickname, String surveyCode, int requiredPeerSubmissionCount, OffsetDateTime now, OffsetDateTime resultAvailableAt) {
+        public SurveyRecord saveNewSurvey(
+                String userNickname,
+                String surveyCode,
+                int requiredPeerSubmissionCount,
+                OffsetDateTime now,
+                OffsetDateTime resultAvailableAt,
+                String characterPackKey,
+                String characterPackVersion
+        ) {
             if (duplicateSurveyCodes.remove(surveyCode)) {
                 throw new RuntimeException("duplicate uk_surveys_survey_code: " + surveyCode);
             }
@@ -296,7 +326,9 @@ class SurveyCommandServiceTest {
                     0,
                     requiredPeerSubmissionCount,
                     resultAvailableAt,
-                    now
+                    now,
+                    characterPackKey,
+                    characterPackVersion
             );
             surveys.put(survey.id(), survey);
             return survey;
@@ -326,7 +358,9 @@ class SurveyCommandServiceTest {
                     survey.resultGenerationAttemptCount(),
                     survey.requiredPeerSubmissionCount(),
                     survey.resultAvailableAt(),
-                    survey.createdAt()
+                    survey.createdAt(),
+                    survey.characterPackKey(),
+                    survey.characterPackVersion()
             ));
         }
 
@@ -337,6 +371,24 @@ class SurveyCommandServiceTest {
 
         @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
+            throw new UnsupportedOperationException("not used in survey command tests");
+        }
+    }
+
+    private static final class FakeCharacterPackRepository implements CharacterPackRepository {
+        private CharacterPackSnapshot activeSnapshot = new CharacterPackSnapshot("pomang", "v1");
+
+        @Override
+        public Optional<CharacterPackSnapshot> findActiveSnapshot() {
+            return Optional.of(activeSnapshot);
+        }
+
+        @Override
+        public Optional<com.looky.characterpack.application.CharacterPackVariantRecord> findPrimaryVariant(
+                String packKey,
+                String packVersion,
+                com.looky.result.domain.ResultQuadrantType quadrantType
+        ) {
             throw new UnsupportedOperationException("not used in survey command tests");
         }
     }

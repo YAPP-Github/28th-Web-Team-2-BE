@@ -54,6 +54,9 @@ public class ResultQuadrantJpaEntity {
     @Column(name = "s3_object_key", length = 1024)
     private String s3ObjectKey;
 
+    @Column(name = "selected_variant_key", length = 120)
+    private String selectedVariantKey;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "work_status", nullable = false, length = 32)
     private QuadrantWorkStatus workStatus;
@@ -97,6 +100,7 @@ public class ResultQuadrantJpaEntity {
         this(result, quadrant.quadrantType(), quadrant.imageUrl());
         this.interpretation = quadrant.interpretation();
         this.s3ObjectKey = quadrant.s3ObjectKey();
+        this.selectedVariantKey = quadrant.selectedVariantKey();
     }
 
     public ResultQuadrantType getQuadrantType() {
@@ -116,13 +120,15 @@ public class ResultQuadrantJpaEntity {
         catch (Exception exception) { throw new IllegalStateException("Unable to read adjective keywords", exception); }
     }
     public String getS3ObjectKey() { return s3ObjectKey; }
+    public String getSelectedVariantKey() { return selectedVariantKey; }
     public QuadrantWorkStatus getWorkStatus() { return workStatus; }
     public int getAttemptCount() { return attemptCount; }
     public String getFailureReason() { return failureReason; }
 
-    public void completeImage(String imageUrl, String s3ObjectKey) {
+    public void completeImage(String imageUrl, String s3ObjectKey, String selectedVariantKey) {
         this.imageUrl = imageUrl;
         this.s3ObjectKey = s3ObjectKey;
+        this.selectedVariantKey = selectedVariantKey;
         this.workStatus = QuadrantWorkStatus.IMAGE_READY;
         this.failureReason = null;
     }

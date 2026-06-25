@@ -26,7 +26,9 @@ class FakeResultGeneratorClientTest {
                 1,
                 3,
                 OffsetDateTime.parse("2026-06-23T03:00:00+09:00"),
-                OffsetDateTime.parse("2026-06-22T03:00:00+09:00")
+                OffsetDateTime.parse("2026-06-22T03:00:00+09:00"),
+                "pomang",
+                "v1"
         ), 3));
 
         assertEquals("https://cdn.looky.my/results/b91k2p8xq4z2/open.png", result.quadrantImageUrls().get(ResultQuadrantType.OPEN));

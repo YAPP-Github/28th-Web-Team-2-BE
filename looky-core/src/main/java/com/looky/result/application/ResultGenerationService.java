@@ -1,5 +1,7 @@
 package com.looky.result.application;
 
+import com.looky.characterpack.application.CharacterPackRepository;
+import com.looky.characterpack.application.CharacterPackVariantRecord;
 import com.looky.submission.application.SubmissionRepository;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,6 +34,7 @@ public class ResultGenerationService {
     private final Clock clock;
     private final ResultImageClient resultImageClient;
     private final ResultImageStorage resultImageStorage;
+    private final CharacterPackRepository characterPackRepository;
 
     public ResultGenerationService(
             SurveyRepository surveyRepository,
@@ -42,7 +46,7 @@ public class ResultGenerationService {
             ResultGenerationPolicy resultGenerationPolicy,
             Clock clock
     ) {
-        this(surveyRepository, submissionRepository, resultRepository, resultGeneratorClient, sourceReader, narrativeClient, resultGenerationPolicy, clock, null, null);
+        this(surveyRepository, submissionRepository, resultRepository, resultGeneratorClient, sourceReader, narrativeClient, resultGenerationPolicy, clock, null, null, null);
     }
 
     public int generateReadyResults() {
@@ -72,8 +76,21 @@ public class ResultGenerationService {
                 } else {
                     for (ResultQuadrantRecord quadrant : resultRepository.findImageWorkCandidates(survey.id(), resultGenerationPolicy.maxAttempts())) {
                         try {
-                            String key = resultImageStorage.upload(survey.surveyCode(), quadrant.quadrantType(), resultImageClient.generate(quadrant.imagePrompt()));
-                            resultRepository.markQuadrantImageReady(survey.id(), quadrant.quadrantType(), key);
+                            CharacterPackVariantRecord variant = characterPackRepository.findPrimaryVariant(
+                                            survey.characterPackKey(),
+                                            survey.characterPackVersion(),
+                                            quadrant.quadrantType()
+                                    )
+                                    .orElseThrow(() -> new IllegalStateException("Character pack variant not found"));
+                            String key = resultImageStorage.upload(
+                                    survey.surveyCode(),
+                                    quadrant.quadrantType(),
+                                    resultImageClient.generate(new ResultImageRequest(
+                                            quadrant.imagePrompt(),
+                                            List.of(variant.baseAssetKey(), variant.assetKey())
+                                    ))
+                            );
+                            resultRepository.markQuadrantImageReady(survey.id(), quadrant.quadrantType(), key, variant.variantKey());
                         } catch (RuntimeException imageException) {
                             resultRepository.markQuadrantImageFailed(survey.id(), quadrant.quadrantType(), imageException.getMessage());
                         }

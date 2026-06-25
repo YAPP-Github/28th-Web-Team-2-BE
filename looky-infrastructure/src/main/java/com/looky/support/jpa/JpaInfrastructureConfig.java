@@ -1,5 +1,7 @@
 package com.looky.support.jpa;
 
+import com.looky.characterpack.persistence.CharacterPackJpaEntity;
+import com.looky.characterpack.persistence.CharacterPackVersionJpaRepository;
 import com.looky.question.persistence.QuestionJpaEntity;
 import com.looky.question.persistence.QuestionJpaRepository;
 import com.looky.result.persistence.ResultJpaEntity;
@@ -13,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @Configuration
-@EntityScan(basePackageClasses = {QuestionJpaEntity.class, SurveyJpaEntity.class, SubmissionJpaEntity.class, ResultJpaEntity.class})
-@EnableJpaRepositories(basePackageClasses = {QuestionJpaRepository.class, SurveyJpaRepository.class, SubmissionJpaRepository.class, ResultJpaRepository.class})
+@EntityScan(basePackageClasses = {CharacterPackJpaEntity.class, QuestionJpaEntity.class, SurveyJpaEntity.class, SubmissionJpaEntity.class, ResultJpaEntity.class})
+@EnableJpaRepositories(basePackageClasses = {CharacterPackVersionJpaRepository.class, QuestionJpaRepository.class, SurveyJpaRepository.class, SubmissionJpaRepository.class, ResultJpaRepository.class})
 public class JpaInfrastructureConfig {
 }

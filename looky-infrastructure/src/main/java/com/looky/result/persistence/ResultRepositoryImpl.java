@@ -60,9 +60,9 @@ public class ResultRepositoryImpl implements ResultRepository {
 
     @Override
     @Transactional
-    public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey) {
+    public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey, String selectedVariantKey) {
         ResultQuadrantJpaEntity quadrant = findQuadrant(surveyId, quadrantType);
-        quadrant.completeImage(null, s3ObjectKey);
+        quadrant.completeImage(null, s3ObjectKey, selectedVariantKey);
     }
 
     @Override
@@ -101,7 +101,7 @@ public class ResultRepositoryImpl implements ResultRepository {
             if (entity == null) {
                 resultQuadrantJpaRepository.save(new ResultQuadrantJpaEntity(result, quadrant));
             } else {
-                entity.completeImage(quadrant.imageUrl(), quadrant.s3ObjectKey());
+                entity.completeImage(quadrant.imageUrl(), quadrant.s3ObjectKey(), quadrant.selectedVariantKey());
             }
         }
         survey.updateResultStatus(ResultStatus.READY);
@@ -120,6 +120,7 @@ public class ResultRepositoryImpl implements ResultRepository {
                                 quadrant.getInterpretation(),
                                 quadrant.getImagePrompt(),
                                 quadrant.getS3ObjectKey(),
+                                quadrant.getSelectedVariantKey(),
                                 quadrant.getWorkStatus(),
                                 quadrant.getAttemptCount(),
                                 quadrant.getDefinitionKeyword(),

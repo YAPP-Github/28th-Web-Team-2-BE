@@ -18,3 +18,15 @@ union all
 select id, '먼저 움직여본다.', '먼저 움직일 것 같다.', 4, true, current_timestamp, current_timestamp from questions
 union all
 select id, '주변 사람까지 끌어들여 적극적으로 해본다.', '주변 사람까지 끌어들여 적극적으로 할 것 같다.', 5, true, current_timestamp, current_timestamp from questions;
+
+insert into character_packs (id, pack_key, name, created_at, updated_at) values
+(1, 'pomang', 'Pomang', current_timestamp, current_timestamp);
+
+insert into character_pack_versions (id, pack_id, version, base_asset_key, active, created_at, updated_at) values
+(1, 1, 'v1', 'character-packs/pomang/v1/base/base.png', true, current_timestamp, current_timestamp);
+
+insert into character_pack_variants (version_id, variant_key, quadrant_type, asset_key, sort_order, created_at, updated_at) values
+(1, 'open-cheer', 'OPEN', 'character-packs/pomang/v1/variants/open-cheer.png', 0, current_timestamp, current_timestamp),
+(1, 'blind-magnifier', 'BLIND', 'character-packs/pomang/v1/variants/blind-magnifier.png', 0, current_timestamp, current_timestamp),
+(1, 'hidden-letter', 'HIDDEN', 'character-packs/pomang/v1/variants/hidden-letter.png', 0, current_timestamp, current_timestamp),
+(1, 'unknown-teary', 'UNKNOWN', 'character-packs/pomang/v1/variants/unknown-teary.png', 0, current_timestamp, current_timestamp);

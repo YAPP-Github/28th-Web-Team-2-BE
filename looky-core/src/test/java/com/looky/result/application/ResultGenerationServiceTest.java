@@ -1,5 +1,8 @@
 package com.looky.result.application;
 
+import com.looky.characterpack.application.CharacterPackRepository;
+import com.looky.characterpack.application.CharacterPackVariantRecord;
+import com.looky.result.domain.QuadrantWorkStatus;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.submission.application.SubmissionRepository;
 import com.looky.submission.domain.SubmitterType;
@@ -34,6 +37,9 @@ class ResultGenerationServiceTest {
     private final FakeResultGeneratorClient resultGeneratorClient = new FakeResultGeneratorClient();
     private final FakeResultGenerationSourceReader sourceReader = new FakeResultGenerationSourceReader();
     private final FakeResultNarrativeClient narrativeClient = new FakeResultNarrativeClient();
+    private final FakeCharacterPackRepository characterPackRepository = new FakeCharacterPackRepository();
+    private final FakeResultImageClient resultImageClient = new FakeResultImageClient();
+    private final FakeResultImageStorage resultImageStorage = new FakeResultImageStorage();
     private final ResultGenerationService service = new ResultGenerationService(
             surveyRepository,
             submissionRepository,
@@ -43,6 +49,19 @@ class ResultGenerationServiceTest {
             narrativeClient,
             new ResultGenerationPolicy(3),
             clock
+    );
+    private final ResultGenerationService imageService = new ResultGenerationService(
+            surveyRepository,
+            submissionRepository,
+            resultRepository,
+            resultGeneratorClient,
+            sourceReader,
+            narrativeClient,
+            new ResultGenerationPolicy(3),
+            clock,
+            resultImageClient,
+            resultImageStorage,
+            characterPackRepository
     );
 
     @Test
@@ -84,6 +103,30 @@ class ResultGenerationServiceTest {
 
         assertEquals(List.of("호기심 많은"), resultRepository.savedNarrative.adjectivesBySubmissionAnswerId().get(101L));
         assertEquals("타인이 보는 강점", resultRepository.savedNarrative.quadrants().get(ResultQuadrantType.BLIND).interpretation());
+    }
+
+    @Test
+    void generateReadyResultsUsesSnapshotVariantAndStoresSelectedVariantKey() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1), "pomang", "v1");
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        resultRepository.resultsBySurveyId.put(survey.id(), narrativeReadyResult(survey.id()));
+
+        int generatedCount = imageService.generateReadyResults();
+
+        assertEquals(1, generatedCount);
+        assertEquals(
+                List.of(
+                        "character-packs/pomang/v1/base/base.png",
+                        "character-packs/pomang/v1/variants/open-cheer.png"
+                ),
+                resultImageClient.generatedRequests.getFirst().referenceAssetKeys()
+        );
+        assertEquals(
+                "open-cheer",
+                selectedVariantKey(resultRepository.resultsBySurveyId.get(survey.id()), ResultQuadrantType.OPEN)
+        );
     }
 
     @Test
@@ -282,12 +325,24 @@ class ResultGenerationServiceTest {
                 .imageUrl();
     }
 
+    private static String selectedVariantKey(ResultRecord result, ResultQuadrantType type) {
+        return result.quadrants().stream()
+                .filter(quadrant -> quadrant.quadrantType() == type)
+                .findFirst()
+                .orElseThrow()
+                .selectedVariantKey();
+    }
+
     private SurveyRecord survey(ResultStatus resultStatus, OffsetDateTime resultAvailableAt) {
-        return survey(1L, "b91k2p8xq4z2", resultStatus, resultAvailableAt);
+        return survey(1L, "b91k2p8xq4z2", resultStatus, resultAvailableAt, 0, "pomang", "v1");
+    }
+
+    private SurveyRecord survey(ResultStatus resultStatus, OffsetDateTime resultAvailableAt, String characterPackKey, String characterPackVersion) {
+        return survey(1L, "b91k2p8xq4z2", resultStatus, resultAvailableAt, 0, characterPackKey, characterPackVersion);
     }
 
     private SurveyRecord survey(Long id, String surveyCode, ResultStatus resultStatus, OffsetDateTime resultAvailableAt) {
-        return survey(id, surveyCode, resultStatus, resultAvailableAt, 0);
+        return survey(id, surveyCode, resultStatus, resultAvailableAt, 0, "pomang", "v1");
     }
 
     private SurveyRecord survey(
@@ -296,6 +351,18 @@ class ResultGenerationServiceTest {
             ResultStatus resultStatus,
             OffsetDateTime resultAvailableAt,
             int resultGenerationAttemptCount
+    ) {
+        return survey(id, surveyCode, resultStatus, resultAvailableAt, resultGenerationAttemptCount, "pomang", "v1");
+    }
+
+    private SurveyRecord survey(
+            Long id,
+            String surveyCode,
+            ResultStatus resultStatus,
+            OffsetDateTime resultAvailableAt,
+            int resultGenerationAttemptCount,
+            String characterPackKey,
+            String characterPackVersion
     ) {
         return new SurveyRecord(
                 id,
@@ -306,7 +373,22 @@ class ResultGenerationServiceTest {
                 resultGenerationAttemptCount,
                 3,
                 resultAvailableAt,
-                OffsetDateTime.now(clock).minusDays(1)
+                OffsetDateTime.now(clock).minusDays(1),
+                characterPackKey,
+                characterPackVersion
+        );
+    }
+
+    private static ResultRecord narrativeReadyResult(Long surveyId) {
+        return new ResultRecord(
+                10L + surveyId,
+                surveyId,
+                ResultQuadrantType.values().length == 0 ? List.of() : List.of(
+                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "OPEN 해석", "OPEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
+                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "BLIND 해석", "BLIND image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
+                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "HIDDEN 해석", "HIDDEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
+                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "UNKNOWN 해석", "UNKNOWN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0)
+                )
         );
     }
 
@@ -329,7 +411,15 @@ class ResultGenerationServiceTest {
         }
 
         @Override
-        public SurveyRecord saveNewSurvey(String userNickname, String surveyCode, int requiredPeerSubmissionCount, OffsetDateTime now, OffsetDateTime resultAvailableAt) {
+        public SurveyRecord saveNewSurvey(
+                String userNickname,
+                String surveyCode,
+                int requiredPeerSubmissionCount,
+                OffsetDateTime now,
+                OffsetDateTime resultAvailableAt,
+                String characterPackKey,
+                String characterPackVersion
+        ) {
             throw new UnsupportedOperationException("not used in result generation tests");
         }
 
@@ -373,7 +463,9 @@ class ResultGenerationServiceTest {
                     survey.resultGenerationAttemptCount() + 1,
                     survey.requiredPeerSubmissionCount(),
                     survey.resultAvailableAt(),
-                    survey.createdAt()
+                    survey.createdAt(),
+                    survey.characterPackKey(),
+                    survey.characterPackVersion()
             ));
             return true;
         }
@@ -462,8 +554,31 @@ class ResultGenerationServiceTest {
         }
 
         @Override
-        public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey) {
-            throw new UnsupportedOperationException("not used in result generation tests");
+        public void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey, String selectedVariantKey) {
+            ResultRecord result = resultsBySurveyId.get(surveyId);
+            resultsBySurveyId.put(
+                    surveyId,
+                    new ResultRecord(
+                            result.id(),
+                            result.surveyId(),
+                            result.quadrants().stream()
+                                    .map(quadrant -> quadrant.quadrantType() == quadrantType
+                                            ? new ResultQuadrantRecord(
+                                            quadrant.quadrantType(),
+                                            null,
+                                            quadrant.interpretation(),
+                                            quadrant.imagePrompt(),
+                                            s3ObjectKey,
+                                            selectedVariantKey,
+                                            QuadrantWorkStatus.IMAGE_READY,
+                                            quadrant.attemptCount(),
+                                            quadrant.definitionKeyword(),
+                                            quadrant.adjectiveKeywords()
+                                    )
+                                            : quadrant)
+                                    .toList()
+                    )
+            );
         }
 
         @Override
@@ -479,6 +594,31 @@ class ResultGenerationServiceTest {
             resultsBySurveyId.put(surveyId, new ResultRecord(10L + surveyId, surveyId, quadrants));
             savedAtBySurveyId.put(surveyId, now);
             surveyRepository.updateResultStatus(surveyId, ResultStatus.READY);
+        }
+    }
+
+    private static final class FakeCharacterPackRepository implements CharacterPackRepository {
+        @Override
+        public Optional<com.looky.characterpack.application.CharacterPackSnapshot> findActiveSnapshot() {
+            throw new UnsupportedOperationException("not used in result generation tests");
+        }
+
+        @Override
+        public Optional<CharacterPackVariantRecord> findPrimaryVariant(String packKey, String packVersion, ResultQuadrantType quadrantType) {
+            return Optional.of(new CharacterPackVariantRecord(
+                    quadrantType == ResultQuadrantType.OPEN ? "open-cheer" :
+                            quadrantType == ResultQuadrantType.BLIND ? "blind-magnifier" :
+                                    quadrantType == ResultQuadrantType.HIDDEN ? "hidden-letter" : "unknown-teary",
+                    quadrantType,
+                    "character-packs/%s/%s/base/base.png".formatted(packKey, packVersion),
+                    "character-packs/%s/%s/variants/%s.png".formatted(
+                            packKey,
+                            packVersion,
+                            quadrantType == ResultQuadrantType.OPEN ? "open-cheer" :
+                                    quadrantType == ResultQuadrantType.BLIND ? "blind-magnifier" :
+                                            quadrantType == ResultQuadrantType.HIDDEN ? "hidden-letter" : "unknown-teary"
+                    )
+            ));
         }
     }
 
@@ -521,6 +661,23 @@ class ResultGenerationServiceTest {
         public ResultNarrative generate(List<ResultAnswerAdjectiveRecord> answers) {
             calls++;
             return narrative;
+        }
+    }
+
+    private static final class FakeResultImageClient implements ResultImageClient {
+        private final List<ResultImageRequest> generatedRequests = new ArrayList<>();
+
+        @Override
+        public byte[] generate(ResultImageRequest request) {
+            generatedRequests.add(request);
+            return request.imagePrompt().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
+    private static final class FakeResultImageStorage implements ResultImageStorage {
+        @Override
+        public String upload(String surveyCode, ResultQuadrantType quadrantType, byte[] imageBytes) {
+            return "surveys/%s/results/%s.png".formatted(surveyCode, quadrantType.name());
         }
     }
 }

@@ -35,4 +35,15 @@ class ResultQuadrantJpaEntityTest {
         assertEquals(1, quadrant.getAttemptCount());
         assertEquals("image generation failed", quadrant.getFailureReason());
     }
+
+    @Test
+    void completeImageStoresSelectedVariantKey() {
+        var quadrant = new ResultQuadrantJpaEntity(null, ResultQuadrantType.OPEN, "해석", "prompt");
+
+        quadrant.completeImage(null, "surveys/code/results/OPEN.png", "open-cheer");
+
+        assertEquals("surveys/code/results/OPEN.png", quadrant.getS3ObjectKey());
+        assertEquals("open-cheer", quadrant.getSelectedVariantKey());
+        assertEquals(QuadrantWorkStatus.IMAGE_READY, quadrant.getWorkStatus());
+    }
 }

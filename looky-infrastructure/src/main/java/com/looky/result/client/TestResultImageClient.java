@@ -1,6 +1,7 @@
 package com.looky.result.client;
 
 import com.looky.result.application.ResultImageClient;
+import com.looky.result.application.ResultImageRequest;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,13 +23,13 @@ public class TestResultImageClient implements ResultImageClient {
     }
 
     @Override
-    public byte[] generate(String imagePrompt) {
-        generatedPrompts.add(imagePrompt);
-        if (failBlindOnce && !blindFailed && imagePrompt.startsWith("BLIND")) {
+    public byte[] generate(ResultImageRequest request) {
+        generatedPrompts.add(request.imagePrompt());
+        if (failBlindOnce && !blindFailed && request.imagePrompt().startsWith("BLIND")) {
             blindFailed = true;
             throw new IllegalStateException("blind image failed once");
         }
-        return ("test-png:" + imagePrompt).getBytes(StandardCharsets.UTF_8);
+        return ("test-png:" + request.imagePrompt()).getBytes(StandardCharsets.UTF_8);
     }
 
     public List<String> generatedPrompts() {

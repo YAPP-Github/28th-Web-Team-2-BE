@@ -16,6 +16,7 @@ class ResultQuadrantRecordTest {
                 "타인이 먼저 발견하는 강점",
                 "abstract illustration",
                 null,
+                null,
                 QuadrantWorkStatus.NARRATIVE_READY,
                 0
         );

@@ -14,6 +14,8 @@ public record SurveyRecord(
         int resultGenerationAttemptCount,
         int requiredPeerSubmissionCount,
         OffsetDateTime resultAvailableAt,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        String characterPackKey,
+        String characterPackVersion
 ) {
 }
