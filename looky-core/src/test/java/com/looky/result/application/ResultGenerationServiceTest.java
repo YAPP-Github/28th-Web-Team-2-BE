@@ -130,6 +130,28 @@ class ResultGenerationServiceTest {
     }
 
     @Test
+    void generateReadyResultsBuildsReferenceAwareImagePrompt() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1), "pomang", "v1");
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        resultRepository.resultsBySurveyId.put(survey.id(), narrativeReadyResult(survey.id()));
+
+        imageService.generateReadyResults();
+
+        assertEquals(
+                """
+                        Image 1: base character reference. Preserve the core character identity, silhouette, and illustration style from this image.
+                        Image 2: OPEN quadrant variant reference. Use the pose, facial expression, props, and mood cues from this image.
+                        Create one final illustration that keeps the same character from Image 1 while reflecting the OPEN quadrant cues from Image 2.
+                        Additional scene guidance:
+                        OPEN image prompt
+                        """,
+                resultImageClient.generatedRequests.getFirst().imagePrompt()
+        );
+    }
+
+    @Test
     void generateReadyResultsSkipsWhenSelfSubmissionIsMissing() {
         SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(survey);

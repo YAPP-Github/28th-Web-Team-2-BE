@@ -86,7 +86,7 @@ public class ResultGenerationService {
                                     survey.surveyCode(),
                                     quadrant.quadrantType(),
                                     resultImageClient.generate(new ResultImageRequest(
-                                            quadrant.imagePrompt(),
+                                            buildReferenceAwareImagePrompt(quadrant),
                                             List.of(variant.baseAssetKey(), variant.assetKey())
                                     ))
                             );
@@ -132,5 +132,19 @@ public class ResultGenerationService {
         } catch (RuntimeException exception) {
             LOGGER.log(Level.SEVERE, "Failed to mark result generation failure. surveyId=" + surveyId, exception);
         }
+    }
+
+    private String buildReferenceAwareImagePrompt(ResultQuadrantRecord quadrant) {
+        return """
+                Image 1: base character reference. Preserve the core character identity, silhouette, and illustration style from this image.
+                Image 2: %s quadrant variant reference. Use the pose, facial expression, props, and mood cues from this image.
+                Create one final illustration that keeps the same character from Image 1 while reflecting the %s quadrant cues from Image 2.
+                Additional scene guidance:
+                %s
+                """.formatted(
+                quadrant.quadrantType().name(),
+                quadrant.quadrantType().name(),
+                quadrant.imagePrompt()
+        );
     }
 }

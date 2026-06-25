@@ -25,7 +25,7 @@ public class TestResultImageClient implements ResultImageClient {
     @Override
     public byte[] generate(ResultImageRequest request) {
         generatedPrompts.add(request.imagePrompt());
-        if (failBlindOnce && !blindFailed && request.imagePrompt().startsWith("BLIND")) {
+        if (failBlindOnce && !blindFailed && request.imagePrompt().contains("BLIND image prompt")) {
             blindFailed = true;
             throw new IllegalStateException("blind image failed once");
         }
