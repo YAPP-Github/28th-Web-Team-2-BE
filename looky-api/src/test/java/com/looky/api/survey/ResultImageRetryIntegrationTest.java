@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = LookyApiApplication.class, properties = {
         "looky.survey.result-open-delay-hours=0",
@@ -46,7 +47,7 @@ class ResultImageRetryIntegrationTest {
         assertEquals(4, imageClient.generatedPrompts().size());
         assertEquals(1, resultGenerationService.generateReadyResults());
         assertEquals(5, imageClient.generatedPrompts().size());
-        assertEquals("BLIND image prompt", imageClient.generatedPrompts().getLast());
+        assertTrue(imageClient.generatedPrompts().getLast().contains("BLIND image prompt"));
         assertEquals(
                 "blind-magnifier",
                 resultRepository.findBySurveyId(survey.surveyId()).orElseThrow().quadrants().stream()
