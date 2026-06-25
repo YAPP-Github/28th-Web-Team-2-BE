@@ -40,6 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(SurveyController.class)
 class SurveyControllerTest {
 
+    private static final String SURVEY_CODE = "b91k2p";
     private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-06-23T03:00:00+09:00");
     private static final OffsetDateTime RESULT_AVAILABLE_AT = OffsetDateTime.parse("2026-06-24T03:00:00+09:00");
 
@@ -66,11 +67,11 @@ class SurveyControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userNickname\":\"만두\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/api/v1/surveys/b91k2p8xq4z2/status"))
+                .andExpect(header().string("Location", "/api/v1/surveys/" + SURVEY_CODE + "/status"))
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.message").value("설문이 생성되었습니다."))
-                .andExpect(jsonPath("$.payload.surveyCode").value("b91k2p8xq4z2"))
-                .andExpect(jsonPath("$.payload.shareUrl").value("https://looky.my/surveys/b91k2p8xq4z2"))
+                .andExpect(jsonPath("$.payload.surveyCode").value(SURVEY_CODE))
+                .andExpect(jsonPath("$.payload.shareUrl").value("https://looky.my/" + SURVEY_CODE))
                 .andExpect(jsonPath("$.payload.userNickname").value("만두"))
                 .andExpect(jsonPath("$.payload.surveyStatus").value("DRAFT"))
                 .andExpect(jsonPath("$.payload.resultAvailableAt").value("2026-06-24T03:00:00+09:00"))
@@ -134,7 +135,7 @@ class SurveyControllerTest {
 
     @Test
     void startSubmissionUsesSurveyCodePathAndCommonWrapper() throws Exception {
-        given(surveyService.startSubmission("b91k2p8xq4z2"))
+        given(surveyService.startSubmission(SURVEY_CODE))
                 .willReturn(new SubmissionStartedResult(
                         10L,
                         SubmitterType.SELF,
@@ -143,7 +144,7 @@ class SurveyControllerTest {
                         List.of()
                 ));
 
-        mockMvc.perform(post("/api/v1/surveys/b91k2p8xq4z2/submissions"))
+        mockMvc.perform(post("/api/v1/surveys/" + SURVEY_CODE + "/submissions"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/v1/submissions/10"))
                 .andExpect(jsonPath("$.status").value("success"))
@@ -155,7 +156,7 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyStatusUsesSurveyCodePathAndCommonWrapper() throws Exception {
-        given(surveyService.getSurveyStatus("b91k2p8xq4z2"))
+        given(surveyService.getSurveyStatus(SURVEY_CODE))
                 .willReturn(new SurveyStatusResult(
                         1L,
                         "만두",
@@ -166,15 +167,15 @@ class SurveyControllerTest {
                         3,
                         RESULT_AVAILABLE_AT,
                         3600,
-                        "b91k2p8xq4z2"
+                        SURVEY_CODE
                 ));
 
-        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/status"))
+        mockMvc.perform(get("/api/v1/surveys/" + SURVEY_CODE + "/status"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.message").value("설문 상태를 조회했습니다."))
-                .andExpect(jsonPath("$.payload.surveyCode").value("b91k2p8xq4z2"))
-                .andExpect(jsonPath("$.payload.shareUrl").value("https://looky.my/surveys/b91k2p8xq4z2"))
+                .andExpect(jsonPath("$.payload.surveyCode").value(SURVEY_CODE))
+                .andExpect(jsonPath("$.payload.shareUrl").value("https://looky.my/" + SURVEY_CODE))
                 .andExpect(jsonPath("$.payload.userNickname").value("만두"))
                 .andExpect(jsonPath("$.payload.surveyStatus").value("COLLECTING"))
                 .andExpect(jsonPath("$.payload.resultStatus").value("COLLECTING_PEER_RESPONSES"))
@@ -221,9 +222,9 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyResultReturnsReadyResultWithQuadrantImages() throws Exception {
-        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
+        given(resultQueryService.getSurveyResult(SURVEY_CODE))
                 .willReturn(new SurveyResultResult(
-                        "b91k2p8xq4z2",
+                        SURVEY_CODE,
                         ResultStatus.READY,
                         Map.of(
                                 "OPEN", "https://cdn.looky.my/results/b91/open.png",
@@ -239,11 +240,11 @@ class SurveyControllerTest {
                         )
                 ));
 
-        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
+        mockMvc.perform(get("/api/v1/surveys/" + SURVEY_CODE + "/result"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.message").value("설문 결과를 조회했습니다."))
-                .andExpect(jsonPath("$.payload.surveyCode").value("b91k2p8xq4z2"))
+                .andExpect(jsonPath("$.payload.surveyCode").value(SURVEY_CODE))
                 .andExpect(jsonPath("$.payload.resultStatus").value("READY"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.OPEN").value("https://cdn.looky.my/results/b91/open.png"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.BLIND").value("https://cdn.looky.my/results/b91/blind.png"))
@@ -256,14 +257,14 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyResultReturnsWaitingStatusWhenResultIsNotReady() throws Exception {
-        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
+        given(resultQueryService.getSurveyResult(SURVEY_CODE))
                 .willReturn(new SurveyResultResult(
-                        "b91k2p8xq4z2",
+                        SURVEY_CODE,
                         ResultStatus.COLLECTING_PEER_RESPONSES,
                         null
                 ));
 
-        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
+        mockMvc.perform(get("/api/v1/surveys/" + SURVEY_CODE + "/result"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.payload.resultStatus").value("COLLECTING_PEER_RESPONSES"))
@@ -272,14 +273,14 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyResultReturnsGeneratingStatusWhenResultIsGenerating() throws Exception {
-        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
+        given(resultQueryService.getSurveyResult(SURVEY_CODE))
                 .willReturn(new SurveyResultResult(
-                        "b91k2p8xq4z2",
+                        SURVEY_CODE,
                         ResultStatus.GENERATING,
                         null
                 ));
 
-        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
+        mockMvc.perform(get("/api/v1/surveys/" + SURVEY_CODE + "/result"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.payload.resultStatus").value("GENERATING"))
@@ -288,14 +289,14 @@ class SurveyControllerTest {
 
     @Test
     void getSurveyResultReturnsFailedStatusWhenGenerationFailed() throws Exception {
-        given(resultQueryService.getSurveyResult("b91k2p8xq4z2"))
+        given(resultQueryService.getSurveyResult(SURVEY_CODE))
                 .willReturn(new SurveyResultResult(
-                        "b91k2p8xq4z2",
+                        SURVEY_CODE,
                         ResultStatus.FAILED,
                         null
                 ));
 
-        mockMvc.perform(get("/api/v1/surveys/b91k2p8xq4z2/result"))
+        mockMvc.perform(get("/api/v1/surveys/" + SURVEY_CODE + "/result"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.payload.resultStatus").value("FAILED"))
@@ -308,7 +309,7 @@ class SurveyControllerTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(post("/api/v1/share/shr_legacy/submissions/start"))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/v1/surveys/b91k2p8xq4z2/submissions/start"))
+        mockMvc.perform(post("/api/v1/surveys/" + SURVEY_CODE + "/submissions/start"))
                 .andExpect(status().isNotFound());
         mockMvc.perform(post("/api/v1/submissions/10/answers")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -322,7 +323,7 @@ class SurveyControllerTest {
         return new SurveyCreatedResult(
                 1L,
                 userNickname,
-                "b91k2p8xq4z2",
+                SURVEY_CODE,
                 SurveyStatus.DRAFT,
                 ResultStatus.WAITING_SELF_RESPONSE,
                 3,

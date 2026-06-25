@@ -21,7 +21,7 @@ public record SurveyStatusResponse(
 ) {
     public static SurveyStatusResponse from(SurveyStatusResult result) {
         String resultUrl = result.resultStatus() == ResultStatus.READY
-                ? "https://looky.my/surveys/" + result.surveyCode() + "/result"
+                ? "https://looky.my/" + result.surveyCode() + "/result"
                 : null;
         return new SurveyStatusResponse(
                 result.surveyCode(),
@@ -33,7 +33,7 @@ public record SurveyStatusResponse(
                 result.requiredPeerSubmissionCount(),
                 result.resultAvailableAt(),
                 result.remainingSecondsToResultOpen(),
-                "https://looky.my/surveys/" + result.surveyCode(),
+                "https://looky.my/" + result.surveyCode(),
                 resultUrl
         );
     }

@@ -20,6 +20,7 @@ import com.looky.survey.domain.ResultStatus;
 import com.looky.survey.domain.SurveyStatus;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayDeque;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,14 +28,15 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,9 +62,8 @@ class SurveyCommandServiceTest {
 
         assertEquals("만두", result.userNickname());
         assertNotNull(result.surveyCode());
-        assertEquals(12, result.surveyCode().length());
-        assertTrue(result.surveyCode().matches("[A-Za-z0-9_-]{12}"));
-        assertFalse(result.surveyCode().contains("_"));
+        assertEquals(6, result.surveyCode().length());
+        assertTrue(result.surveyCode().matches("[A-Za-z0-9]{6}"));
         assertEquals(SurveyStatus.DRAFT, result.surveyStatus());
         assertEquals(ResultStatus.WAITING_SELF_RESPONSE, result.resultStatus());
         assertEquals(3, result.requiredPeerSubmissionCount());
@@ -86,6 +87,24 @@ class SurveyCommandServiceTest {
     }
 
     @Test
+    void createSurveyRetriesWhenSurveyCodeCollides() {
+        surveyRepository.duplicateSurveyCodes.add("dup123");
+        SurveyCommandService retryingService = new StubCodeSurveyCommandService(
+                surveyRepository,
+                questionRepository,
+                submissionRepository,
+                clock,
+                new SurveyPolicy(Duration.ofHours(24)),
+                new ResultStatusResolver(submissionRepository, clock),
+                List.of("dup123", "new456")
+        );
+
+        SurveyCreatedResult result = retryingService.createSurvey(new CreateSurveyCommand("만두"));
+
+        assertEquals("new456", result.surveyCode());
+    }
+
+    @Test
     void startSubmissionStartsSelfWhenNoSelfSubmissionExists() {
         SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
 
@@ -105,6 +124,38 @@ class SurveyCommandServiceTest {
         for (TraitCode traitCode : TraitCode.values()) {
             assertEquals(2, result.questions().stream().filter(question -> question.content().startsWith(traitCode.name())).count());
         }
+    }
+
+    @Test
+    void startSubmissionReplacesSelfReferenceWithTargetNickname() {
+        questionRepository.questionContentOverrides.put(1L, "매일 똑같은 반복 작업이 떨어지면 나는?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("손호민"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("매일 똑같은 반복 작업이 떨어지면 손호민은?", result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionRetriesWhenPeerSubmitterKeyCollides() {
+        submissionRepository.duplicateSubmitterKeys.add("dup111");
+        SurveyCommandService retryingService = new StubCodeSurveyCommandService(
+                surveyRepository,
+                questionRepository,
+                submissionRepository,
+                clock,
+                new SurveyPolicy(Duration.ofHours(24)),
+                new ResultStatusResolver(submissionRepository, clock),
+                List.of("survey1", "dup111", "peer22")
+        );
+        SurveyCreatedResult created = retryingService.createSurvey(new CreateSurveyCommand("만두"));
+        SubmissionStartedResult selfSubmission = retryingService.startSubmission(created.surveyCode());
+        retryingService.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
+
+        SubmissionStartedResult peerSubmission = retryingService.startSubmission(created.surveyCode());
+
+        assertEquals(SubmitterType.PEER, peerSubmission.submitterType());
+        assertTrue(submissionRepository.savedSubmitterKeys.contains("peer22"));
     }
 
     @Test
@@ -193,12 +244,49 @@ class SurveyCommandServiceTest {
         assertTrue(result.remainingSecondsToResultOpen() > 0);
     }
 
+    private SubmitAnswersCommand answersFrom(SubmissionStartedResult submission) {
+        return new SubmitAnswersCommand(
+                submission.questions().stream()
+                        .map(question -> new AnswerCommand(
+                                question.questionId(),
+                                question.options().getFirst().answerOptionId()
+                        ))
+                        .toList()
+        );
+    }
+
+    private static final class StubCodeSurveyCommandService extends SurveyCommandService {
+        private final Queue<String> codes;
+
+        private StubCodeSurveyCommandService(
+                SurveyRepository surveyRepository,
+                com.looky.question.application.QuestionRepository questionRepository,
+                SubmissionRepository submissionRepository,
+                Clock clock,
+                SurveyPolicy surveyPolicy,
+                ResultStatusResolver resultStatusResolver,
+                List<String> codes
+        ) {
+            super(surveyRepository, questionRepository, submissionRepository, clock, surveyPolicy, resultStatusResolver);
+            this.codes = new ArrayDeque<>(codes);
+        }
+
+        @Override
+        protected String generateCode() {
+            return codes.remove();
+        }
+    }
+
     private static final class FakeSurveyRepository implements SurveyRepository {
         private long sequence = 1;
         private final Map<Long, SurveyRecord> surveys = new LinkedHashMap<>();
+        private final Set<String> duplicateSurveyCodes = new HashSet<>();
 
         @Override
         public SurveyRecord saveNewSurvey(String userNickname, String surveyCode, int requiredPeerSubmissionCount, OffsetDateTime now, OffsetDateTime resultAvailableAt) {
+            if (duplicateSurveyCodes.remove(surveyCode)) {
+                throw new RuntimeException("duplicate uk_surveys_survey_code: " + surveyCode);
+            }
             SurveyRecord survey = new SurveyRecord(
                     sequence++,
                     userNickname,
@@ -255,6 +343,7 @@ class SurveyCommandServiceTest {
 
     private static final class FakeQuestionRepository implements com.looky.question.application.QuestionRepository {
         private final Map<TraitCode, Integer> questionCountByTrait = new EnumMap<>(TraitCode.class);
+        private final Map<Long, String> questionContentOverrides = new LinkedHashMap<>();
 
         @Override
         public List<QuestionRecord> findRandomActiveQuestionsByTrait(int countPerTrait, SubmitterType submitterType) {
@@ -266,7 +355,7 @@ class SurveyCommandServiceTest {
                     questions.add(new QuestionRecord(
                         questionId,
                         traitCode,
-                        traitCode.name() + " 질문 " + questionId,
+                        questionContentOverrides.getOrDefault(questionId, traitCode.name() + " 질문 " + questionId),
                         List.of(
                                 new QuestionRecord.AnswerOptionRecord(questionId * 10 + 1, 1, "답변 1"),
                                 new QuestionRecord.AnswerOptionRecord(questionId * 10 + 2, 2, "답변 2"),
@@ -287,6 +376,8 @@ class SurveyCommandServiceTest {
         private boolean selfCompleted;
         private long peerCompletedCount;
         private final Map<Long, SubmissionRecord> submissions = new LinkedHashMap<>();
+        private final Set<String> duplicateSubmitterKeys = new HashSet<>();
+        private final List<String> savedSubmitterKeys = new ArrayList<>();
 
         @Override
         public boolean existsSelfSubmission(Long surveyId) {
@@ -310,6 +401,10 @@ class SurveyCommandServiceTest {
 
         @Override
         public SubmissionStartedResult saveStartedSubmission(Long surveyId, String targetNickname, SubmitterType submitterType, String submitterKey, List<QuestionRecord> questions, OffsetDateTime now) {
+            if (duplicateSubmitterKeys.remove(submitterKey)) {
+                throw new RuntimeException("duplicate uk_submissions_submitter_key: " + submitterKey);
+            }
+            savedSubmitterKeys.add(submitterKey);
             long submissionId = sequence++;
             List<SubmissionQuestionRecord> assigned = questions.stream()
                     .map(question -> new SubmissionQuestionRecord(

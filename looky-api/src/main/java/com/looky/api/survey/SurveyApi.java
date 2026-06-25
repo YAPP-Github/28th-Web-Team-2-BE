@@ -43,8 +43,8 @@ public interface SurveyApi {
                                               "status": "success",
                                               "message": "설문이 생성되었습니다.",
                                               "payload": {
-                                                "surveyCode": "b91k2p8xq4z2",
-                                                "shareUrl": "https://looky.my/surveys/b91k2p8xq4z2",
+                                                "surveyCode": "b91k2p",
+                                                "shareUrl": "https://looky.my/b91k2p",
                                                 "userNickname": "만두",
                                                 "surveyStatus": "DRAFT",
                                                 "resultAvailableAt": "2026-06-24T03:00:00+09:00",
@@ -99,7 +99,7 @@ public interface SurveyApi {
             }
     )
     ResponseEntity<ApiResponse<SubmissionStartedResponse>> startSubmission(
-            @Parameter(description = "설문 코드", example = "b91k2p8xq4z2") String surveyCode
+            @Parameter(description = "설문 코드", example = "b91k2p") String surveyCode
     );
 
     @Operation(
@@ -125,7 +125,7 @@ public interface SurveyApi {
             }
     )
     ResponseEntity<ApiResponse<SurveyStatusResponse>> getSurveyStatus(
-            @Parameter(description = "설문 코드", example = "b91k2p8xq4z2") String surveyCode
+            @Parameter(description = "설문 코드", example = "b91k2p") String surveyCode
     );
 
     @Operation(
@@ -145,13 +145,13 @@ public interface SurveyApi {
                                                               "status": "success",
                                                               "message": "설문 결과를 조회했습니다.",
                                                               "payload": {
-                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "surveyCode": "b91k2p",
                                                                 "resultStatus": "READY",
                                                                 "quadrantImageUrls": {
-                                                                  "OPEN": "https://cdn.looky.my/results/b91k2p8xq4z2/open.png",
-                                                                  "BLIND": "https://cdn.looky.my/results/b91k2p8xq4z2/blind.png",
-                                                                  "HIDDEN": "https://cdn.looky.my/results/b91k2p8xq4z2/hidden.png",
-                                                                  "UNKNOWN": "https://cdn.looky.my/results/b91k2p8xq4z2/unknown.png"
+                                                                  "OPEN": "https://cdn.looky.my/results/b91k2p/open.png",
+                                                                  "BLIND": "https://cdn.looky.my/results/b91k2p/blind.png",
+                                                                  "HIDDEN": "https://cdn.looky.my/results/b91k2p/hidden.png",
+                                                                  "UNKNOWN": "https://cdn.looky.my/results/b91k2p/unknown.png"
                                                                 },
                                                                 "quadrantInterpretations": {
                                                                   "OPEN": "서로 알고 있는 강점",
@@ -167,7 +167,7 @@ public interface SurveyApi {
                                                                     "definitionKeyword": "탐험가",
                                                                     "adjectiveKeywords": ["탐험 실험 다 좋아 인간", "새로운 거? 무조건 해봐야지"],
                                                                     "interpretation": "서로가 알고 있는 호기심과 개방성입니다.",
-                                                                    "imageUrl": "https://cdn.looky.my/results/b91k2p8xq4z2/open.png"
+                                                                    "imageUrl": "https://cdn.looky.my/results/b91k2p/open.png"
                                                                   }
                                                                 }
                                                               }
@@ -181,7 +181,7 @@ public interface SurveyApi {
                                                               "status": "success",
                                                               "message": "설문 결과를 조회했습니다.",
                                                               "payload": {
-                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "surveyCode": "b91k2p",
                                                                 "resultStatus": "COLLECTING_PEER_RESPONSES",
                                                                 "quadrantImageUrls": null
                                                               }
@@ -195,7 +195,7 @@ public interface SurveyApi {
                                                               "status": "success",
                                                               "message": "설문 결과를 조회했습니다.",
                                                               "payload": {
-                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "surveyCode": "b91k2p",
                                                                 "resultStatus": "GENERATING",
                                                                 "quadrantImageUrls": null
                                                               }
@@ -209,7 +209,7 @@ public interface SurveyApi {
                                                               "status": "success",
                                                               "message": "설문 결과를 조회했습니다.",
                                                               "payload": {
-                                                                "surveyCode": "b91k2p8xq4z2",
+                                                                "surveyCode": "b91k2p",
                                                                 "resultStatus": "FAILED",
                                                                 "quadrantImageUrls": null
                                                               }
@@ -224,6 +224,6 @@ public interface SurveyApi {
             }
     )
     ResponseEntity<ApiResponse<SurveyResultResponse>> getSurveyResult(
-            @Parameter(description = "설문 코드", example = "b91k2p8xq4z2") String surveyCode
+            @Parameter(description = "설문 코드", example = "b91k2p") String surveyCode
     );
 }

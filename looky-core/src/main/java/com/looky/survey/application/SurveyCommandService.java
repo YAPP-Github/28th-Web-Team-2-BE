@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +38,12 @@ public class SurveyCommandService implements SurveyService {
 
     private static final int QUESTION_COUNT_PER_TRAIT = 2;
     private static final int REQUIRED_PEER_SUBMISSION_COUNT = 3;
+    private static final int CODE_LENGTH = 6;
+    private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
     private static final char[] CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
+    private static final int HANGUL_SYLLABLE_BASE = 0xAC00;
+    private static final int HANGUL_SYLLABLE_LAST = 0xD7A3;
+    private static final int HANGUL_JONGSEONG_COUNT = 28;
 
     private final SurveyRepository surveyRepository;
     private final QuestionRepository questionRepository;
@@ -50,13 +56,7 @@ public class SurveyCommandService implements SurveyService {
     @Override
     public SurveyCreatedResult createSurvey(CreateSurveyCommand command) {
         OffsetDateTime now = OffsetDateTime.now(clock);
-        SurveyRecord survey = surveyRepository.saveNewSurvey(
-                command.userNickname(),
-                generateCode(),
-                REQUIRED_PEER_SUBMISSION_COUNT,
-                now,
-                now.plus(surveyPolicy.resultOpenDelay())
-        );
+        SurveyRecord survey = saveNewSurveyWithRetry(command.userNickname(), now);
 
         return new SurveyCreatedResult(
                 survey.id(),
@@ -75,7 +75,7 @@ public class SurveyCommandService implements SurveyService {
         SurveyRecord survey = surveyRepository.findBySurveyCode(surveyCode)
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
         if (!submissionRepository.existsSelfSubmission(survey.id())) {
-            List<QuestionRecord> questions = pickQuestions(SubmitterType.SELF);
+            List<QuestionRecord> questions = personalizeQuestions(survey.userNickname(), pickQuestions(SubmitterType.SELF));
             return submissionRepository.saveStartedSubmission(
                     survey.id(),
                     survey.userNickname(),
@@ -89,15 +89,8 @@ public class SurveyCommandService implements SurveyService {
             throw new LookyException(ErrorCode.SURVEY_NOT_COLLECTING);
         }
 
-        List<QuestionRecord> questions = pickQuestions(SubmitterType.PEER);
-        return submissionRepository.saveStartedSubmission(
-                survey.id(),
-                survey.userNickname(),
-                SubmitterType.PEER,
-                generateCode(),
-                questions,
-                OffsetDateTime.now(clock)
-        );
+        List<QuestionRecord> questions = personalizeQuestions(survey.userNickname(), pickQuestions(SubmitterType.PEER));
+        return savePeerSubmissionWithRetry(survey, questions);
     }
 
     @Override
@@ -151,6 +144,94 @@ public class SurveyCommandService implements SurveyService {
         return questions;
     }
 
+    private List<QuestionRecord> personalizeQuestions(String targetNickname, List<QuestionRecord> questions) {
+        return questions.stream()
+                .map(question -> new QuestionRecord(
+                        question.questionId(),
+                        question.traitCode(),
+                        personalizeQuestionContent(question.content(), targetNickname),
+                        question.options()
+                ))
+                .toList();
+    }
+
+    private String personalizeQuestionContent(String content, String targetNickname) {
+        if (content == null || targetNickname == null) {
+            return content;
+        }
+        String nickname = targetNickname.trim();
+        if (nickname.isEmpty() || !content.contains("나는?")) {
+            return content;
+        }
+        return content.replace("나는?", nickname + topicParticle(nickname) + "?");
+    }
+
+    private String topicParticle(String nickname) {
+        char lastCharacter = nickname.charAt(nickname.length() - 1);
+        if (lastCharacter < HANGUL_SYLLABLE_BASE || lastCharacter > HANGUL_SYLLABLE_LAST) {
+            return "는";
+        }
+        return ((lastCharacter - HANGUL_SYLLABLE_BASE) % HANGUL_JONGSEONG_COUNT) == 0 ? "는" : "은";
+    }
+
+    private SurveyRecord saveNewSurveyWithRetry(String userNickname, OffsetDateTime now) {
+        OffsetDateTime resultAvailableAt = now.plus(surveyPolicy.resultOpenDelay());
+        for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt++) {
+            try {
+                return surveyRepository.saveNewSurvey(
+                        userNickname,
+                        generateCode(),
+                        REQUIRED_PEER_SUBMISSION_COUNT,
+                        now,
+                        resultAvailableAt
+                );
+            } catch (RuntimeException exception) {
+                if (!isDuplicateCodeException(exception, "survey_code", "uk_surveys_survey_code")) {
+                    throw exception;
+                }
+            }
+        }
+        throw new LookyException(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    private SubmissionStartedResult savePeerSubmissionWithRetry(SurveyRecord survey, List<QuestionRecord> questions) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt++) {
+            try {
+                return submissionRepository.saveStartedSubmission(
+                        survey.id(),
+                        survey.userNickname(),
+                        SubmitterType.PEER,
+                        generateCode(),
+                        questions,
+                        now
+                );
+            } catch (RuntimeException exception) {
+                if (!isDuplicateCodeException(exception, "submitter_key", "uk_submissions_submitter_key")) {
+                    throw exception;
+                }
+            }
+        }
+        throw new LookyException(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    private boolean isDuplicateCodeException(RuntimeException exception, String... keywords) {
+        Throwable cause = exception;
+        while (cause != null) {
+            String message = cause.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase(Locale.ROOT);
+                for (String keyword : keywords) {
+                    if (normalized.contains(keyword.toLowerCase(Locale.ROOT))) {
+                        return true;
+                    }
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
     private void validateAnswers(SubmissionRecord submission, List<AnswerCommand> answers) {
         if (answers == null || answers.size() != submission.questions().size()) {
             throw new LookyException(ErrorCode.INVALID_ANSWER_COUNT);
@@ -180,9 +261,9 @@ public class SurveyCommandService implements SurveyService {
         }
     }
 
-    private String generateCode() {
-        StringBuilder builder = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) {
+    protected String generateCode() {
+        StringBuilder builder = new StringBuilder(CODE_LENGTH);
+        for (int i = 0; i < CODE_LENGTH; i++) {
             builder.append(CODE_ALPHABET[random.nextInt(CODE_ALPHABET.length)]);
         }
         return builder.toString();

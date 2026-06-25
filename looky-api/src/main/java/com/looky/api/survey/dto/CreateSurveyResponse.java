@@ -8,9 +8,9 @@ import java.time.OffsetDateTime;
 
 @Schema(description = "설문 생성 응답 payload")
 public record CreateSurveyResponse(
-        @Schema(description = "외부에서 사용하는 설문 코드", example = "b91k2p8xq4z2")
+        @Schema(description = "외부에서 사용하는 설문 코드", example = "b91k2p")
         String surveyCode,
-        @Schema(description = "프론트 공유 URL", example = "https://looky.my/surveys/b91k2p8xq4z2")
+        @Schema(description = "프론트 공유 URL", example = "https://looky.my/b91k2p")
         String shareUrl,
         @Schema(description = "trim된 개설자 닉네임", example = "만두")
         String userNickname,
@@ -26,7 +26,7 @@ public record CreateSurveyResponse(
         String userNickname = result.userNickname() == null ? null : result.userNickname().trim();
         return new CreateSurveyResponse(
                 surveyCode,
-                "https://looky.my/surveys/" + surveyCode,
+                "https://looky.my/" + surveyCode,
                 userNickname,
                 result.surveyStatus(),
                 result.resultAvailableAt(),
