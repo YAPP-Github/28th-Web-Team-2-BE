@@ -11,6 +11,7 @@ public record ResultQuadrantRecord(
         String interpretation,
         String imagePrompt,
         String s3ObjectKey,
+        String selectedVariantKey,
         QuadrantWorkStatus workStatus,
         int attemptCount,
         String definitionKeyword,
@@ -22,17 +23,18 @@ public record ResultQuadrantRecord(
             String interpretation,
             String imagePrompt,
             String s3ObjectKey,
+            String selectedVariantKey,
             QuadrantWorkStatus workStatus,
             int attemptCount
     ) {
-        this(quadrantType, imageUrl, interpretation, imagePrompt, s3ObjectKey, workStatus, attemptCount, null, List.of());
+        this(quadrantType, imageUrl, interpretation, imagePrompt, s3ObjectKey, selectedVariantKey, workStatus, attemptCount, null, List.of());
     }
 
     public ResultQuadrantRecord(ResultQuadrantType quadrantType, String imageUrl) {
-        this(quadrantType, imageUrl, null, null, null, QuadrantWorkStatus.IMAGE_READY, 0, null, List.of());
+        this(quadrantType, imageUrl, null, null, null, null, QuadrantWorkStatus.IMAGE_READY, 0, null, List.of());
     }
 
     public ResultQuadrantRecord(ResultQuadrantType quadrantType, String imageUrl, String interpretation, String s3ObjectKey) {
-        this(quadrantType, imageUrl, interpretation, null, s3ObjectKey, QuadrantWorkStatus.IMAGE_READY, 0, null, List.of());
+        this(quadrantType, imageUrl, interpretation, null, s3ObjectKey, null, QuadrantWorkStatus.IMAGE_READY, 0, null, List.of());
     }
 }

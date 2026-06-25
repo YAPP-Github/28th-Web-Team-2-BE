@@ -1,5 +1,7 @@
 package com.looky.survey.application;
 
+import com.looky.characterpack.application.CharacterPackRepository;
+import com.looky.characterpack.application.CharacterPackSnapshot;
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
 import com.looky.question.application.QuestionRecord;
@@ -48,6 +50,7 @@ public class SurveyCommandService implements SurveyService {
     private final SurveyRepository surveyRepository;
     private final QuestionRepository questionRepository;
     private final SubmissionRepository submissionRepository;
+    private final CharacterPackRepository characterPackRepository;
     private final Clock clock;
     private final SurveyPolicy surveyPolicy;
     private final ResultStatusResolver resultStatusResolver;
@@ -176,6 +179,8 @@ public class SurveyCommandService implements SurveyService {
 
     private SurveyRecord saveNewSurveyWithRetry(String userNickname, OffsetDateTime now) {
         OffsetDateTime resultAvailableAt = now.plus(surveyPolicy.resultOpenDelay());
+        CharacterPackSnapshot snapshot = characterPackRepository.findActiveSnapshot()
+                .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
         for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt++) {
             try {
                 return surveyRepository.saveNewSurvey(
@@ -183,7 +188,9 @@ public class SurveyCommandService implements SurveyService {
                         generateCode(),
                         REQUIRED_PEER_SUBMISSION_COUNT,
                         now,
-                        resultAvailableAt
+                        resultAvailableAt,
+                        snapshot.packKey(),
+                        snapshot.packVersion()
                 );
             } catch (RuntimeException exception) {
                 if (!isDuplicateCodeException(exception, "survey_code", "uk_surveys_survey_code")) {

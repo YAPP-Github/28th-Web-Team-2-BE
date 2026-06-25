@@ -49,6 +49,12 @@ public class SurveyJpaEntity {
     @Column(name = "result_available_at", nullable = false)
     private OffsetDateTime resultAvailableAt;
 
+    @Column(name = "character_pack_key", length = 80)
+    private String characterPackKey;
+
+    @Column(name = "character_pack_version", length = 40)
+    private String characterPackVersion;
+
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
 
@@ -64,7 +70,15 @@ public class SurveyJpaEntity {
     protected SurveyJpaEntity() {
     }
 
-    public SurveyJpaEntity(String userNickname, String surveyCode, int requiredPeerSubmissionCount, OffsetDateTime now, OffsetDateTime resultAvailableAt) {
+    public SurveyJpaEntity(
+            String userNickname,
+            String surveyCode,
+            int requiredPeerSubmissionCount,
+            OffsetDateTime now,
+            OffsetDateTime resultAvailableAt,
+            String characterPackKey,
+            String characterPackVersion
+    ) {
         this.userNickname = userNickname;
         this.surveyCode = surveyCode;
         this.surveyStatus = SurveyStatus.DRAFT;
@@ -72,6 +86,8 @@ public class SurveyJpaEntity {
         this.resultGenerationAttemptCount = 0;
         this.requiredPeerSubmissionCount = requiredPeerSubmissionCount;
         this.resultAvailableAt = resultAvailableAt;
+        this.characterPackKey = characterPackKey;
+        this.characterPackVersion = characterPackVersion;
         this.createdAt = now;
         this.updatedAt = now;
     }
@@ -133,5 +149,13 @@ public class SurveyJpaEntity {
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getCharacterPackKey() {
+        return characterPackKey;
+    }
+
+    public String getCharacterPackVersion() {
+        return characterPackVersion;
     }
 }

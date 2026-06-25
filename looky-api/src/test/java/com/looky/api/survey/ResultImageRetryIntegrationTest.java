@@ -2,6 +2,8 @@ package com.looky.api.survey;
 
 import com.looky.api.LookyApiApplication;
 import com.looky.result.application.ResultGenerationService;
+import com.looky.result.application.ResultRepository;
+import com.looky.result.domain.ResultQuadrantType;
 import com.looky.result.client.TestResultImageClient;
 import com.looky.survey.application.SurveyService;
 import com.looky.survey.application.dto.AnswerCommand;
@@ -29,6 +31,7 @@ class ResultImageRetryIntegrationTest {
 
     @Autowired private SurveyService surveyService;
     @Autowired private ResultGenerationService resultGenerationService;
+    @Autowired private ResultRepository resultRepository;
     @Autowired private TestResultImageClient imageClient;
 
     @Test
@@ -44,6 +47,14 @@ class ResultImageRetryIntegrationTest {
         assertEquals(1, resultGenerationService.generateReadyResults());
         assertEquals(5, imageClient.generatedPrompts().size());
         assertEquals("BLIND image prompt", imageClient.generatedPrompts().getLast());
+        assertEquals(
+                "blind-magnifier",
+                resultRepository.findBySurveyId(survey.surveyId()).orElseThrow().quadrants().stream()
+                        .filter(quadrant -> quadrant.quadrantType() == ResultQuadrantType.BLIND)
+                        .findFirst()
+                        .orElseThrow()
+                        .selectedVariantKey()
+        );
     }
 
     private void complete(String surveyCode) {

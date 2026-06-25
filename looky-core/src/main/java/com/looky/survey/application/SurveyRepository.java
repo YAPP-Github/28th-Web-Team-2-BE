@@ -14,7 +14,9 @@ public interface SurveyRepository {
             String surveyCode,
             int requiredPeerSubmissionCount,
             OffsetDateTime now,
-            OffsetDateTime resultAvailableAt
+            OffsetDateTime resultAvailableAt,
+            String characterPackKey,
+            String characterPackVersion
     );
 
     Optional<SurveyRecord> findBySurveyCode(String surveyCode);

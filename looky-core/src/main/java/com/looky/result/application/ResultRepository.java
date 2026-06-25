@@ -23,7 +23,7 @@ public interface ResultRepository {
                 .toList();
     }
 
-    void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey);
+    void markQuadrantImageReady(Long surveyId, ResultQuadrantType quadrantType, String s3ObjectKey, String selectedVariantKey);
 
     void markQuadrantImageFailed(Long surveyId, ResultQuadrantType quadrantType, String failureReason);
 

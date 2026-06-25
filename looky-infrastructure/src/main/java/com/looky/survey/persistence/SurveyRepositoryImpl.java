@@ -28,8 +28,24 @@ public class SurveyRepositoryImpl implements SurveyRepository {
     }
 
     @Override
-    public SurveyRecord saveNewSurvey(String userNickname, String surveyCode, int requiredPeerSubmissionCount, OffsetDateTime now, OffsetDateTime resultAvailableAt) {
-        SurveyJpaEntity entity = new SurveyJpaEntity(userNickname, surveyCode, requiredPeerSubmissionCount, now, resultAvailableAt);
+    public SurveyRecord saveNewSurvey(
+            String userNickname,
+            String surveyCode,
+            int requiredPeerSubmissionCount,
+            OffsetDateTime now,
+            OffsetDateTime resultAvailableAt,
+            String characterPackKey,
+            String characterPackVersion
+    ) {
+        SurveyJpaEntity entity = new SurveyJpaEntity(
+                userNickname,
+                surveyCode,
+                requiredPeerSubmissionCount,
+                now,
+                resultAvailableAt,
+                characterPackKey,
+                characterPackVersion
+        );
         return toRecord(surveyJpaRepository.save(entity));
     }
 
@@ -83,7 +99,9 @@ public class SurveyRepositoryImpl implements SurveyRepository {
                 entity.getResultGenerationAttemptCount(),
                 entity.getRequiredPeerSubmissionCount(),
                 entity.getResultAvailableAt(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getCharacterPackKey(),
+                entity.getCharacterPackVersion()
         );
     }
 }
