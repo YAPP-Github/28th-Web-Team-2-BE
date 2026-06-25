@@ -112,7 +112,10 @@ public class ResultRepositoryImpl implements ResultRepository {
                 entity.getId(),
                 entity.getSurvey().getId(),
                 entity.getOverallKeyword() == null ? null : new com.looky.result.application.ResultOverviewRecord(
-                        entity.getOverallKeyword(), entity.getOverallAnalysis(), entity.getActionTip()),
+                        entity.getOverallKeyword(),
+                        entity.getOverallAnalysisTitle(),
+                        entity.getOverallAnalysis(),
+                        entity.getActionTip()),
                 resultQuadrantJpaRepository.findByResult_Id(entity.getId()).stream()
                         .map(quadrant -> new ResultQuadrantRecord(
                                 quadrant.getQuadrantType(),

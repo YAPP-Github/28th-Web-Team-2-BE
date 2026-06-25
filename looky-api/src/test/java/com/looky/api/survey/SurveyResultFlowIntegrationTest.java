@@ -82,6 +82,11 @@ class SurveyResultFlowIntegrationTest {
         assertEquals("https://signed.test/surveys/" + survey.surveyCode() + "/results/BLIND.png", result.quadrantImageUrls().get("BLIND"));
         assertEquals("https://signed.test/surveys/" + survey.surveyCode() + "/results/HIDDEN.png", result.quadrantImageUrls().get("HIDDEN"));
         assertEquals("https://signed.test/surveys/" + survey.surveyCode() + "/results/UNKNOWN.png", result.quadrantImageUrls().get("UNKNOWN"));
+        assertEquals("마음을 잘 여는 사람", result.overall().keyword());
+        assertEquals("대화를 여는 다정한 기운", result.overall().analysisTitle());
+        assertEquals(3, result.overall().tip().lines().count());
+        assertEquals(2, result.quadrants().get("OPEN").adjectiveKeywords().size());
+        assertEquals("OPEN", result.quadrants().keySet().toArray()[0]);
     }
 
     @Test

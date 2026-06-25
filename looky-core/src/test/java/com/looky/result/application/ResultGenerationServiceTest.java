@@ -89,7 +89,7 @@ class ResultGenerationServiceTest {
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
         sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, SubmitterType.SELF, "SELF", com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
         narrativeClient.narrative = new ResultNarrative(
-                new ResultNarrative.Overview("마음을 잘 여는 사람", "종합 분석", "새로운 대화를 시작해보세요."),
+                new ResultNarrative.Overview("마음을 잘 여는 사람", "대화를 여는 다정한 기운", "종합 분석 본문", "새로운 대화를 시작해보세요."),
                 Map.of(101L, List.of("호기심 많은")),
                 Map.of(
                         ResultQuadrantType.OPEN, new ResultNarrative.QuadrantNarrative("탐험가", List.of("호기심 많은", "새로운 거 좋아"), "공유 강점", "open"),
@@ -405,11 +405,12 @@ class ResultGenerationServiceTest {
         return new ResultRecord(
                 10L + surveyId,
                 surveyId,
+                new ResultOverviewRecord("마음을 잘 여는 사람", "대화를 여는 다정한 기운", "종합 분석 본문", "새로운 대화를 시작해보세요."),
                 ResultQuadrantType.values().length == 0 ? List.of() : List.of(
-                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "OPEN 해석", "OPEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
-                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "BLIND 해석", "BLIND image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
-                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "HIDDEN 해석", "HIDDEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
-                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "UNKNOWN 해석", "UNKNOWN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0)
+                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "OPEN 해석", "OPEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "OPEN 탐험가", List.of("호기심 많은", "새로운 거 좋아")),
+                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "BLIND 해석", "BLIND image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "BLIND 관찰자", List.of("다정한", "세심한")),
+                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "HIDDEN 해석", "HIDDEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "HIDDEN 사색가", List.of("차분한", "깊이 있는")),
+                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "UNKNOWN 해석", "UNKNOWN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "UNKNOWN 개척자", List.of("가능성 큰", "새 판 짜봐"))
                 )
         );
     }
@@ -443,6 +444,11 @@ class ResultGenerationServiceTest {
                 String characterPackVersion
         ) {
             throw new UnsupportedOperationException("not used in result generation tests");
+        }
+
+        @Override
+        public Optional<SurveyRecord> findById(Long surveyId) {
+            return Optional.ofNullable(surveys.get(surveyId));
         }
 
         @Override
@@ -583,6 +589,7 @@ class ResultGenerationServiceTest {
                     new ResultRecord(
                             result.id(),
                             result.surveyId(),
+                            result.overview(),
                             result.quadrants().stream()
                                     .map(quadrant -> quadrant.quadrantType() == quadrantType
                                             ? new ResultQuadrantRecord(
@@ -613,7 +620,13 @@ class ResultGenerationServiceTest {
             if (surveyId.equals(failSaveReadySurveyId)) {
                 throw new IllegalStateException("save ready result failed");
             }
-            resultsBySurveyId.put(surveyId, new ResultRecord(10L + surveyId, surveyId, quadrants));
+            ResultRecord existing = resultsBySurveyId.get(surveyId);
+            resultsBySurveyId.put(surveyId, new ResultRecord(
+                    10L + surveyId,
+                    surveyId,
+                    existing == null ? null : existing.overview(),
+                    quadrants
+            ));
             savedAtBySurveyId.put(surveyId, now);
             surveyRepository.updateResultStatus(surveyId, ResultStatus.READY);
         }
@@ -676,7 +689,7 @@ class ResultGenerationServiceTest {
     }
 
     private static final class FakeResultNarrativeClient implements ResultNarrativeClient {
-        private ResultNarrative narrative = new ResultNarrative(new ResultNarrative.Overview("", "", ""), Map.of(), Map.of());
+        private ResultNarrative narrative = new ResultNarrative(new ResultNarrative.Overview("", "", "", ""), Map.of(), Map.of());
         private int calls;
 
         @Override

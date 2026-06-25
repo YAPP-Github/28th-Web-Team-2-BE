@@ -13,7 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
@@ -34,49 +36,39 @@ public class ResultQueryService {
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
         ResultStatus resultStatus = resultStatusResolver.resolve(survey);
         if (resultStatus != ResultStatus.READY) {
-            return new SurveyResultResult(
-                    survey.surveyCode(),
-                    resultStatus,
-                    null,
-                    null, null, null, null, null
-            );
+            return new SurveyResultResult(survey.surveyCode(), resultStatus, null);
         }
 
         ResultRecord result = resultRepository.findBySurveyId(survey.id())
                 .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
+        ResultOverviewRecord overview = requireOverview(result);
         Map<ResultQuadrantType, String> imageUrls = toQuadrantImageUrls(result);
         Map<ResultQuadrantType, String> interpretations = toQuadrantInterpretations(result);
 
         return new SurveyResultResult(
                 survey.surveyCode(),
                 resultStatus,
-                Map.of(
-                        ResultQuadrantType.OPEN.name(), imageUrls.get(ResultQuadrantType.OPEN),
-                        ResultQuadrantType.BLIND.name(), imageUrls.get(ResultQuadrantType.BLIND),
-                        ResultQuadrantType.HIDDEN.name(), imageUrls.get(ResultQuadrantType.HIDDEN),
-                        ResultQuadrantType.UNKNOWN.name(), imageUrls.get(ResultQuadrantType.UNKNOWN)
-                ),
-                interpretations == null ? null : Map.of(
-                        ResultQuadrantType.OPEN.name(), interpretations.get(ResultQuadrantType.OPEN),
-                        ResultQuadrantType.BLIND.name(), interpretations.get(ResultQuadrantType.BLIND),
-                        ResultQuadrantType.HIDDEN.name(), interpretations.get(ResultQuadrantType.HIDDEN),
-                        ResultQuadrantType.UNKNOWN.name(), interpretations.get(ResultQuadrantType.UNKNOWN)
-                ),
-                result.overview() == null ? null : result.overview().keyword(),
-                result.overview() == null ? null : result.overview().analysis(),
-                result.overview() == null ? null : result.overview().tip(),
+                orderedQuadrantMap(imageUrls),
+                orderedQuadrantMap(interpretations),
+                overview,
                 toQuadrants(result, imageUrls)
         );
     }
 
     private Map<String, SurveyResultQuadrant> toQuadrants(ResultRecord result, Map<ResultQuadrantType, String> imageUrls) {
-        if (result.overview() == null || result.quadrants().stream().anyMatch(q -> q.definitionKeyword() == null || q.adjectiveKeywords().size() != 2)) return null;
-        Map<String, SurveyResultQuadrant> quadrants = new java.util.LinkedHashMap<>();
+        Map<String, SurveyResultQuadrant> quadrants = new LinkedHashMap<>();
         for (ResultQuadrantType type : ResultQuadrantType.values()) {
-            ResultQuadrantRecord quadrant = result.quadrants().stream().filter(q -> q.quadrantType() == type).findFirst().orElseThrow();
+            ResultQuadrantRecord quadrant = requireQuadrant(result, type);
+            if (isBlank(quadrant.definitionKeyword())
+                    || quadrant.adjectiveKeywords() == null
+                    || quadrant.adjectiveKeywords().size() != 2
+                    || quadrant.adjectiveKeywords().stream().anyMatch(ResultQueryService::isBlank)
+                    || isBlank(quadrant.interpretation())) {
+                throw new LookyException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
             quadrants.put(type.name(), new SurveyResultQuadrant(quadrant.definitionKeyword(), quadrant.adjectiveKeywords(), quadrant.interpretation(), imageUrls.get(type)));
         }
-        return Map.copyOf(quadrants);
+        return Collections.unmodifiableMap(quadrants);
     }
 
     private Map<ResultQuadrantType, String> toQuadrantImageUrls(ResultRecord result) {
@@ -95,8 +87,44 @@ public class ResultQueryService {
 
     private Map<ResultQuadrantType, String> toQuadrantInterpretations(ResultRecord result) {
         Map<ResultQuadrantType, String> interpretations = new EnumMap<>(ResultQuadrantType.class);
-        for (ResultQuadrantRecord quadrant : result.quadrants()) interpretations.put(quadrant.quadrantType(), quadrant.interpretation());
-        for (ResultQuadrantType type : ResultQuadrantType.values()) if (interpretations.get(type) == null || interpretations.get(type).isBlank()) return null;
+        for (ResultQuadrantType type : ResultQuadrantType.values()) {
+            ResultQuadrantRecord quadrant = requireQuadrant(result, type);
+            if (isBlank(quadrant.interpretation())) {
+                throw new LookyException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
+            interpretations.put(type, quadrant.interpretation());
+        }
         return interpretations;
+    }
+
+    private ResultOverviewRecord requireOverview(ResultRecord result) {
+        ResultOverviewRecord overview = result.overview();
+        if (overview == null
+                || isBlank(overview.keyword())
+                || isBlank(overview.analysisTitle())
+                || isBlank(overview.analysisBody())
+                || isBlank(overview.tip())) {
+            throw new LookyException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+        return overview;
+    }
+
+    private ResultQuadrantRecord requireQuadrant(ResultRecord result, ResultQuadrantType type) {
+        return result.quadrants().stream()
+                .filter(quadrant -> quadrant.quadrantType() == type)
+                .findFirst()
+                .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
+    private static <T> Map<String, T> orderedQuadrantMap(Map<ResultQuadrantType, T> valuesByType) {
+        Map<String, T> ordered = new LinkedHashMap<>();
+        for (ResultQuadrantType type : ResultQuadrantType.values()) {
+            ordered.put(type.name(), valuesByType.get(type));
+        }
+        return Collections.unmodifiableMap(ordered);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }
