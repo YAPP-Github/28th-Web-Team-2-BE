@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -144,14 +145,45 @@ class ResultGenerationServiceTest {
 
         assertEquals(
                 """
-                        Use every attached image only as a reference for the same character and illustration style.
-                        Do not assign separate roles, priority, or hierarchy to the reference images.
-                        Blend the shared character identity, props, mood, and visual cues across all references into one final illustration.
+                        The hamster character in the attached reference images is our product character.
+                        Use the references only to preserve the hamster's core identity, proportions, color palette, and illustration style.
+                        Do not copy the exact pose, scene, composition, background, props, or facial expression from any reference image.
+                        Create a fresh illustration with a distinct scene, camera angle, pose, expression, and mood for this Johari Window quadrant.
                         Additional scene guidance:
                         OPEN image prompt
                         """,
                 resultImageClient.generatedRequests.getFirst().imagePrompt()
         );
+    }
+
+    @Test
+    void generateReadyResultsSubmitsImageWorkToExecutor() {
+        CountingExecutor executor = new CountingExecutor();
+        ResultGenerationService executorBackedImageService = new ResultGenerationService(
+                surveyRepository,
+                submissionRepository,
+                resultRepository,
+                resultGeneratorClient,
+                sourceReader,
+                narrativeClient,
+                new ResultGenerationPolicy(3),
+                clock,
+                resultImageClient,
+                resultImageStorage,
+                characterPackRepository,
+                executor
+        );
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1), "pomang", "v1");
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        resultRepository.resultsBySurveyId.put(survey.id(), narrativeReadyResult(survey.id()));
+
+        int generatedCount = executorBackedImageService.generateReadyResults();
+
+        assertEquals(1, generatedCount);
+        assertEquals(4, executor.executedCount);
+        assertEquals(4, resultImageClient.generatedRequests.size());
     }
 
     @Test
@@ -790,6 +822,16 @@ class ResultGenerationServiceTest {
         @Override
         public String upload(String surveyCode, ResultQuadrantType quadrantType, byte[] imageBytes) {
             return "surveys/%s/results/%s.png".formatted(surveyCode, quadrantType.name());
+        }
+    }
+
+    private static final class CountingExecutor implements Executor {
+        private int executedCount;
+
+        @Override
+        public void execute(Runnable command) {
+            executedCount++;
+            command.run();
         }
     }
 }

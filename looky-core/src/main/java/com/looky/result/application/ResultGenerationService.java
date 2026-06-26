@@ -8,14 +8,16 @@ import com.looky.survey.application.SurveyRepository;
 import com.looky.survey.domain.ResultStatus;
 import com.looky.result.domain.QuadrantWorkStatus;
 import com.looky.result.domain.ResultQuadrantType;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -24,7 +26,6 @@ import java.util.Map;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class ResultGenerationService {
 
     private final SurveyRepository surveyRepository;
@@ -38,6 +39,7 @@ public class ResultGenerationService {
     private final ResultImageClient resultImageClient;
     private final ResultImageStorage resultImageStorage;
     private final CharacterPackRepository characterPackRepository;
+    private final Executor resultImageGenerationExecutor;
 
     public ResultGenerationService(
             SurveyRepository surveyRepository,
@@ -49,7 +51,52 @@ public class ResultGenerationService {
             ResultGenerationPolicy resultGenerationPolicy,
             Clock clock
     ) {
-        this(surveyRepository, submissionRepository, resultRepository, resultGeneratorClient, sourceReader, narrativeClient, resultGenerationPolicy, clock, null, null, null);
+        this(surveyRepository, submissionRepository, resultRepository, resultGeneratorClient, sourceReader, narrativeClient, resultGenerationPolicy, clock, null, null, null, Runnable::run);
+    }
+
+    public ResultGenerationService(
+            SurveyRepository surveyRepository,
+            SubmissionRepository submissionRepository,
+            ResultRepository resultRepository,
+            ResultGeneratorClient resultGeneratorClient,
+            ResultGenerationSourceReader sourceReader,
+            ResultNarrativeClient narrativeClient,
+            ResultGenerationPolicy resultGenerationPolicy,
+            Clock clock,
+            ResultImageClient resultImageClient,
+            ResultImageStorage resultImageStorage,
+            CharacterPackRepository characterPackRepository
+    ) {
+        this(surveyRepository, submissionRepository, resultRepository, resultGeneratorClient, sourceReader, narrativeClient, resultGenerationPolicy, clock, resultImageClient, resultImageStorage, characterPackRepository, Runnable::run);
+    }
+
+    @Autowired
+    public ResultGenerationService(
+            SurveyRepository surveyRepository,
+            SubmissionRepository submissionRepository,
+            ResultRepository resultRepository,
+            ResultGeneratorClient resultGeneratorClient,
+            ResultGenerationSourceReader sourceReader,
+            ResultNarrativeClient narrativeClient,
+            ResultGenerationPolicy resultGenerationPolicy,
+            Clock clock,
+            ResultImageClient resultImageClient,
+            ResultImageStorage resultImageStorage,
+            CharacterPackRepository characterPackRepository,
+            @Qualifier("resultImageGenerationExecutor") Executor resultImageGenerationExecutor
+    ) {
+        this.surveyRepository = surveyRepository;
+        this.submissionRepository = submissionRepository;
+        this.resultRepository = resultRepository;
+        this.resultGeneratorClient = resultGeneratorClient;
+        this.sourceReader = sourceReader;
+        this.narrativeClient = narrativeClient;
+        this.resultGenerationPolicy = resultGenerationPolicy;
+        this.clock = clock;
+        this.resultImageClient = resultImageClient;
+        this.resultImageStorage = resultImageStorage;
+        this.characterPackRepository = characterPackRepository;
+        this.resultImageGenerationExecutor = resultImageGenerationExecutor;
     }
 
     public int generateReadyResults() {
@@ -142,64 +189,13 @@ public class ResultGenerationService {
                             referenceVariants,
                             variantsByQuadrant
                     );
-                    for (ResultQuadrantRecord quadrant : resultRepository.findImageWorkCandidates(survey.id(), resultGenerationPolicy.maxAttempts())) {
-                        try {
-                            CharacterPackVariantRecord variant = variantsByQuadrant.get(quadrant.quadrantType());
-                            if (variant == null) {
-                                throw new IllegalStateException("Character pack variant not found for quadrant=" + quadrant.quadrantType());
-                            }
-                            ResultImageRequest request = new ResultImageRequest(
-                                    buildReferenceAwareImagePrompt(quadrant),
-                                    referenceAssetKeys
-                            );
-                            log.info(
-                                    "ai.image.request surveyId={} surveyCode={} quadrant={} source={} model={} reason=quadrant_image_generation selectedVariantKey={} referenceAssetKeys={} prompt=\n{}",
-                                    survey.id(),
-                                    survey.surveyCode(),
-                                    quadrant.quadrantType(),
-                                    resultImageClient.getClass().getSimpleName(),
-                                    resultImageClient.modelName(),
-                                    variant.variantKey(),
-                                    request.referenceAssetKeys(),
-                                    request.imagePrompt()
-                            );
-                            byte[] imageBytes = resultImageClient.generate(request);
-                            log.info(
-                                    "ai.image.response surveyId={} surveyCode={} quadrant={} source={} model={} selectedVariantKey={} generatedBytes={}",
-                                    survey.id(),
-                                    survey.surveyCode(),
-                                    quadrant.quadrantType(),
-                                    resultImageClient.getClass().getSimpleName(),
-                                    resultImageClient.modelName(),
-                                    variant.variantKey(),
-                                    imageBytes.length
-                            );
-                            String key = resultImageStorage.upload(
-                                    survey.surveyCode(),
-                                    quadrant.quadrantType(),
-                                    imageBytes
-                            );
-                            resultRepository.markQuadrantImageReady(survey.id(), quadrant.quadrantType(), key, variant.variantKey());
-                            log.info(
-                                    "result.image.ready surveyId={} surveyCode={} quadrant={} selectedVariantKey={} s3ObjectKey={}",
-                                    survey.id(),
-                                    survey.surveyCode(),
-                                    quadrant.quadrantType(),
-                                    variant.variantKey(),
-                                    key
-                            );
-                        } catch (RuntimeException imageException) {
-                            log.warn(
-                                    "result.image.failed surveyId={} surveyCode={} quadrant={} reason={}",
-                                    survey.id(),
-                                    survey.surveyCode(),
-                                    quadrant.quadrantType(),
-                                    imageException.getMessage(),
-                                    imageException
-                            );
-                            resultRepository.markQuadrantImageFailed(survey.id(), quadrant.quadrantType(), imageException.getMessage());
-                        }
-                    }
+                    List<CompletableFuture<Void>> imageFutures = resultRepository.findImageWorkCandidates(survey.id(), resultGenerationPolicy.maxAttempts()).stream()
+                            .map(quadrant -> CompletableFuture.runAsync(
+                                    () -> generateQuadrantImage(survey, quadrant, variantsByQuadrant, referenceAssetKeys),
+                                    resultImageGenerationExecutor
+                            ))
+                            .toList();
+                    imageFutures.forEach(CompletableFuture::join);
                     ResultRecord result = resultRepository.findBySurveyId(survey.id()).orElseThrow();
                     if (result.quadrants().stream().allMatch(quadrant -> quadrant.workStatus() == QuadrantWorkStatus.IMAGE_READY)) {
                         resultRepository.saveReadyResult(survey.id(), result.quadrants(), now);
@@ -239,6 +235,70 @@ public class ResultGenerationService {
         return generatedCount;
     }
 
+    private void generateQuadrantImage(
+            SurveyRecord survey,
+            ResultQuadrantRecord quadrant,
+            Map<ResultQuadrantType, CharacterPackVariantRecord> variantsByQuadrant,
+            List<String> referenceAssetKeys
+    ) {
+        try {
+            CharacterPackVariantRecord variant = variantsByQuadrant.get(quadrant.quadrantType());
+            if (variant == null) {
+                throw new IllegalStateException("Character pack variant not found for quadrant=" + quadrant.quadrantType());
+            }
+            ResultImageRequest request = new ResultImageRequest(
+                    buildReferenceAwareImagePrompt(quadrant),
+                    referenceAssetKeys
+            );
+            log.info(
+                    "ai.image.request surveyId={} surveyCode={} quadrant={} source={} model={} reason=quadrant_image_generation selectedVariantKey={} referenceAssetKeys={} prompt=\n{}",
+                    survey.id(),
+                    survey.surveyCode(),
+                    quadrant.quadrantType(),
+                    resultImageClient.getClass().getSimpleName(),
+                    resultImageClient.modelName(),
+                    variant.variantKey(),
+                    request.referenceAssetKeys(),
+                    request.imagePrompt()
+            );
+            byte[] imageBytes = resultImageClient.generate(request);
+            log.info(
+                    "ai.image.response surveyId={} surveyCode={} quadrant={} source={} model={} selectedVariantKey={} generatedBytes={}",
+                    survey.id(),
+                    survey.surveyCode(),
+                    quadrant.quadrantType(),
+                    resultImageClient.getClass().getSimpleName(),
+                    resultImageClient.modelName(),
+                    variant.variantKey(),
+                    imageBytes.length
+            );
+            String key = resultImageStorage.upload(
+                    survey.surveyCode(),
+                    quadrant.quadrantType(),
+                    imageBytes
+            );
+            resultRepository.markQuadrantImageReady(survey.id(), quadrant.quadrantType(), key, variant.variantKey());
+            log.info(
+                    "result.image.ready surveyId={} surveyCode={} quadrant={} selectedVariantKey={} s3ObjectKey={}",
+                    survey.id(),
+                    survey.surveyCode(),
+                    quadrant.quadrantType(),
+                    variant.variantKey(),
+                    key
+            );
+        } catch (RuntimeException imageException) {
+            log.warn(
+                    "result.image.failed surveyId={} surveyCode={} quadrant={} reason={}",
+                    survey.id(),
+                    survey.surveyCode(),
+                    quadrant.quadrantType(),
+                    imageException.getMessage(),
+                    imageException
+            );
+            resultRepository.markQuadrantImageFailed(survey.id(), quadrant.quadrantType(), imageException.getMessage());
+        }
+    }
+
     private boolean isReadyToGenerate(SurveyRecord survey, OffsetDateTime now) {
         return submissionRepository.existsCompletedSelfSubmission(survey.id())
                 && submissionRepository.countCompletedPeerSubmissions(survey.id()) >= survey.requiredPeerSubmissionCount()
@@ -262,9 +322,10 @@ public class ResultGenerationService {
 
     private String buildReferenceAwareImagePrompt(ResultQuadrantRecord quadrant) {
         return """
-                Use every attached image only as a reference for the same character and illustration style.
-                Do not assign separate roles, priority, or hierarchy to the reference images.
-                Blend the shared character identity, props, mood, and visual cues across all references into one final illustration.
+                The hamster character in the attached reference images is our product character.
+                Use the references only to preserve the hamster's core identity, proportions, color palette, and illustration style.
+                Do not copy the exact pose, scene, composition, background, props, or facial expression from any reference image.
+                Create a fresh illustration with a distinct scene, camera angle, pose, expression, and mood for this Johari Window quadrant.
                 Additional scene guidance:
                 %s
                 """.formatted(quadrant.imagePrompt());
