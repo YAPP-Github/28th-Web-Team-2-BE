@@ -62,10 +62,22 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
         validateOverview(output.overall);
 
         Map<Long, List<String>> adjectivesByAnswerId = new LinkedHashMap<>();
-        for (AnswerAdjectives answer : output.answerAdjectives) {
-            if (answer == null || answer.submissionAnswerId == null || answer.adjectives == null
-                    || answer.adjectives.isEmpty() || answer.adjectives.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)) {
-                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record");
+        for (int index = 0; index < output.answerAdjectives.size(); index++) {
+            AnswerAdjectives answer = output.answerAdjectives.get(index);
+            if (answer == null) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, reason=record is null".formatted(index));
+            }
+            if (answer.submissionAnswerId == null) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, reason=submissionAnswerId is missing".formatted(index));
+            }
+            if (answer.adjectives == null) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, submissionAnswerId=%s, reason=adjectives is missing".formatted(index, answer.submissionAnswerId));
+            }
+            if (answer.adjectives.isEmpty()) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, submissionAnswerId=%s, reason=adjectives is empty".formatted(index, answer.submissionAnswerId));
+            }
+            if (answer.adjectives.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, submissionAnswerId=%s, reason=adjectives contains blank value".formatted(index, answer.submissionAnswerId));
             }
             if (adjectivesByAnswerId.put(answer.submissionAnswerId, List.copyOf(answer.adjectives)) != null) {
                 throw new IllegalArgumentException("OpenAI narrative contains duplicate answer adjectives");

@@ -101,6 +101,27 @@ class OpenAiResultNarrativeClientTest {
     }
 
     @Test
+    void throwsWithAnswerIndexAndIdWhenAdjectiveRecordContainsBlankValue() {
+        var output = new OpenAiResultNarrativeClient.OpenAiNarrativeOutput();
+        output.answerAdjectives = List.of(
+                answer(11L, List.of("호기심 많은")),
+                answer(12L, List.of(" "))
+        );
+        output.overall = overview();
+        output.quadrants = quadrants();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> OpenAiResultNarrativeClient.toResultNarrative(output, List.of(11L, 12L))
+        );
+
+        assertEquals(
+                "OpenAI narrative contains an invalid adjective record: index=1, submissionAnswerId=12, reason=adjectives contains blank value",
+                exception.getMessage()
+        );
+    }
+
+    @Test
     void acceptsNarrativeWhenOnlyCopyStyleConstraintsDeviate() {
         var output = new OpenAiResultNarrativeClient.OpenAiNarrativeOutput();
         output.answerAdjectives = List.of(answer(11L, List.of("호기심 많은")));
