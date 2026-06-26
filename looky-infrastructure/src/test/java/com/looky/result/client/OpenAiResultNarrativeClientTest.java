@@ -101,51 +101,23 @@ class OpenAiResultNarrativeClientTest {
     }
 
     @Test
-    void throwsWhenAnalysisTitleLengthIsOutOfRange() {
+    void acceptsNarrativeWhenOnlyCopyStyleConstraintsDeviate() {
         var output = new OpenAiResultNarrativeClient.OpenAiNarrativeOutput();
         output.answerAdjectives = List.of(answer(11L, List.of("호기심 많은")));
         output.overall = overview();
         output.overall.analysisTitle = "짧은 제목";
+        output.overall.analysisBody = "낯선 모임에서도 \"먼저 같이 해볼게요\" 하고 자연스럽게 말을 꺼냅니다. 주변 사람들도 금세 긴장을 풀고 반응이 부드러워집니다. 끝나고 나면 편안한 인상으로 기억됩니다. 다시 찾게 되는 인상도 남습니다.";
+        output.overall.tip = """
+                분위기를 먼저 풀다 보면 내 속도를 놓칠 때가 있어요.
+                한 박자 쉬며 "제가 먼저 정리해볼게요"라고 말해보세요.
+                흐름이 조금 더 안정적으로 이어집니다.""";
         output.quadrants = quadrants();
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> OpenAiResultNarrativeClient.toResultNarrative(output, List.of(11L))
-        );
+        var narrative = OpenAiResultNarrativeClient.toResultNarrative(output, List.of(11L));
 
-        assertTrue(exception.getMessage().contains("overall.analysisTitle length"));
-    }
-
-    @Test
-    void throwsWhenAnalysisBodyLengthIsOutOfRange() {
-        var output = new OpenAiResultNarrativeClient.OpenAiNarrativeOutput();
-        output.answerAdjectives = List.of(answer(11L, List.of("호기심 많은")));
-        output.overall = overview();
-        output.overall.analysisBody = "짧은 본문입니다. 너무 짧습니다.";
-        output.quadrants = quadrants();
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> OpenAiResultNarrativeClient.toResultNarrative(output, List.of(11L))
-        );
-
-        assertTrue(exception.getMessage().contains("overall.analysisBody length"));
-    }
-
-    @Test
-    void throwsWhenAnalysisBodySentenceCountIsOutOfRange() {
-        var output = new OpenAiResultNarrativeClient.OpenAiNarrativeOutput();
-        output.answerAdjectives = List.of(answer(11L, List.of("호기심 많은")));
-        output.overall = overview();
-        output.overall.analysisBody = "낯선 모임에서도 \"먼저 같이 해볼게요\" 하고 자연스럽게 말을 꺼냅니다. 주변 사람들도 금세 긴장을 풀고 반응이 부드러워집니다. 끝나고 나면 편안한 인상으로 기억됩니다. 다시 찾게 됩니다.";
-        output.quadrants = quadrants();
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> OpenAiResultNarrativeClient.toResultNarrative(output, List.of(11L))
-        );
-
-        assertTrue(exception.getMessage().contains("overall.analysisBody sentenceCount"));
+        assertEquals("짧은 제목", narrative.overview().analysisTitle());
+        assertTrue(narrative.overview().analysisBody().length() > 105);
+        assertTrue(narrative.overview().tip().endsWith("이어집니다."));
     }
 
     @Test
@@ -164,25 +136,6 @@ class OpenAiResultNarrativeClientTest {
         );
 
         assertTrue(exception.getMessage().contains("overall.tip lineCount"));
-    }
-
-    @Test
-    void throwsWhenTipEndingDoesNotMatchContract() {
-        var output = new OpenAiResultNarrativeClient.OpenAiNarrativeOutput();
-        output.answerAdjectives = List.of(answer(11L, List.of("호기심 많은")));
-        output.overall = overview();
-        output.overall.tip = """
-                분위기를 먼저 풀다 보면 내 속도를 놓칠 때가 있어요.
-                한 박자 쉬며 "제가 먼저 정리해볼게요"라고 말해보세요.
-                흐름이 조금 더 안정적으로 이어집니다.""";
-        output.quadrants = quadrants();
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> OpenAiResultNarrativeClient.toResultNarrative(output, List.of(11L))
-        );
-
-        assertEquals("OpenAI narrative contains an invalid overall.tip ending", exception.getMessage());
     }
 
     @Test
