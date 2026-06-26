@@ -20,6 +20,8 @@ import com.looky.survey.application.dto.SurveyCreatedResult;
 import com.looky.survey.application.dto.SurveyStatusResult;
 import com.looky.survey.domain.ResultStatus;
 import com.looky.survey.domain.SurveyStatus;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
@@ -150,6 +152,94 @@ class SurveyCommandServiceTest {
         SubmissionStartedResult result = service.startSubmission(created.surveyCode());
 
         assertEquals("매일 똑같은 반복 작업이 떨어지면 손호민은?", result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionRendersSubjectTemplateWithNicknameParticles() {
+        questionRepository.questionContentOverrides.put(1L, "나의 책·영화 취향은?");
+        questionRepository.questionTemplateOverrides.put(1L, "{나:의} 책·영화 취향은?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("손호민"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("손호민의 책·영화 취향은?", result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionRendersSubjectTemplateWithoutFinalConsonant() {
+        questionRepository.questionContentOverrides.put(1L, "나는 남들이 하는 대로 따라하는 편인가?");
+        questionRepository.questionTemplateOverrides.put(1L, "{나}는 남들이 하는 대로 따라하는 편인가?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("지우"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("지우는 남들이 하는 대로 따라하는 편인가?", result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionRendersTopicTemplateWithShortFinalConsonantNickname() {
+        questionRepository.questionContentOverrides.put(1L, "나는 남들이 하는 대로 따라하는 편인가?");
+        questionRepository.questionTemplateOverrides.put(1L, "{나}는 남들이 하는 대로 따라하는 편인가?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("민준"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("민준이는 남들이 하는 대로 따라하는 편인가?", result.questions().getFirst().content());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "민준, 민준이는 오늘 민준이가 고른다.",
+            "지우, 지우는 오늘 지우가 고른다.",
+            "손호민, 손호민은 오늘 손호민이 고른다.",
+            "김민수, 김민수는 오늘 김민수가 고른다.",
+            "박서윤, 박서윤은 오늘 박서윤이 고른다.",
+            "최하늘, 최하늘은 오늘 최하늘이 고른다.",
+            "루키, 루키는 오늘 루키가 고른다.",
+            "만두, 만두는 오늘 만두가 고른다.",
+            "콩, 콩이는 오늘 콩이가 고른다.",
+            "별, 별이는 오늘 별이가 고른다.",
+            "햇살, 햇살이는 오늘 햇살이가 고른다.",
+            "토리, 토리는 오늘 토리가 고른다.",
+            "하린, 하린이는 오늘 하린이가 고른다.",
+            "서아, 서아는 오늘 서아가 고른다.",
+            "호민123, 호민123은 오늘 호민123이 고른다.",
+            "루키7, 루키7은 오늘 루키7이 고른다.",
+            "혜린, 혜린이는 오늘 혜린이가 고른다.",
+            "유진, 유진이는 오늘 유진이가 고른다.",
+            "수빈, 수빈이는 오늘 수빈이가 고른다.",
+            "김수빈, 김수빈은 오늘 김수빈이 고른다."
+    })
+    void startSubmissionRendersVariousNicknames(String nickname, String expectedContent) {
+        questionRepository.questionContentOverrides.put(1L, "나는 오늘 내가 고른다.");
+        questionRepository.questionTemplateOverrides.put(1L, "{나}는 오늘 {나}가 고른다.");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand(nickname));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals(expectedContent, result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionRendersSubjectTemplateWithFinalConsonantNickname() {
+        questionRepository.questionContentOverrides.put(1L, "내가 새 학기 동아리를 고르는 상황이라면?");
+        questionRepository.questionTemplateOverrides.put(1L, "{나:이가} 새 학기 동아리를 고르는 상황이라면?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("민준"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("민준이가 새 학기 동아리를 고르는 상황이라면?", result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionRendersConditionalSubjectTemplate() {
+        questionRepository.questionContentOverrides.put(1L, "잡아둔 약속이 당일날 엎어졌다. 나라면?");
+        questionRepository.questionTemplateOverrides.put(1L, "잡아둔 약속이 당일날 엎어졌다. {나:이라면}?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("민준"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("잡아둔 약속이 당일날 엎어졌다. 민준이라면?", result.questions().getFirst().content());
     }
 
     @Test
@@ -465,6 +555,7 @@ class SurveyCommandServiceTest {
     private static final class FakeQuestionRepository implements com.looky.question.application.QuestionRepository {
         private final Map<TraitCode, Integer> questionCountByTrait = new EnumMap<>(TraitCode.class);
         private final Map<Long, String> questionContentOverrides = new LinkedHashMap<>();
+        private final Map<Long, String> questionTemplateOverrides = new LinkedHashMap<>();
 
         @Override
         public List<QuestionRecord> findRandomActiveQuestionsByTrait(int countPerTrait, SubmitterType submitterType) {
@@ -477,6 +568,7 @@ class SurveyCommandServiceTest {
                         questionId,
                         traitCode,
                         questionContentOverrides.getOrDefault(questionId, traitCode.name() + " 질문 " + questionId),
+                        questionTemplateOverrides.get(questionId),
                         List.of(
                                 new QuestionRecord.AnswerOptionRecord(questionId * 10 + 1, 1, "답변 1"),
                                 new QuestionRecord.AnswerOptionRecord(questionId * 10 + 2, 2, "답변 2"),

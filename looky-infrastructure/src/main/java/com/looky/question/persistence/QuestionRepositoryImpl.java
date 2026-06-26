@@ -46,10 +46,16 @@ public class QuestionRepositoryImpl implements QuestionRepository {
     }
 
     private QuestionRecord toRecord(QuestionJpaEntity question, List<AnswerOptionJpaEntity> options, SubmitterType submitterType) {
+        String content = submitterType == SubmitterType.SELF ? question.getContentSelf() : question.getContentPeer();
+        String contentTemplate = submitterType == SubmitterType.SELF
+                ? question.getContentSelfTemplate()
+                : question.getContentPeerTemplate();
+
         return new QuestionRecord(
                 question.getId(),
                 question.getTraitCode(),
-                submitterType == SubmitterType.SELF ? question.getContentSelf() : question.getContentPeer(),
+                content,
+                contentTemplate,
                 options.stream()
                         .sorted(Comparator.comparingInt(AnswerOptionJpaEntity::getSequence))
                         .map(option -> new QuestionRecord.AnswerOptionRecord(
