@@ -248,6 +248,36 @@ class SurveyCommandServiceTest {
     }
 
     @Test
+    void submitAnswersAdvancesStoredResultStatusAfterSelfCompletion() {
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
+        SubmissionStartedResult selfSubmission = service.startSubmission(created.surveyCode());
+
+        service.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
+
+        SurveyRecord storedSurvey = surveyRepository.findById(created.surveyId()).orElseThrow();
+        assertEquals(SurveyStatus.COLLECTING, storedSurvey.surveyStatus());
+        assertEquals(ResultStatus.COLLECTING_PEER_RESPONSES, storedSurvey.resultStatus());
+    }
+
+    @Test
+    void startSubmissionAllowsMorePeersThanRequiredCountWhileSurveyIsStillCollecting() {
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
+        SubmissionStartedResult selfSubmission = service.startSubmission(created.surveyCode());
+        service.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
+
+        for (int i = 0; i < 4; i++) {
+            SubmissionStartedResult peerSubmission = service.startSubmission(created.surveyCode());
+            assertEquals(SubmitterType.PEER, peerSubmission.submitterType());
+            service.submitAnswers(peerSubmission.submissionId(), answersFrom(peerSubmission));
+        }
+
+        SurveyStatusResult result = service.getSurveyStatus(created.surveyCode());
+
+        assertEquals(4, result.peerSubmissionCount());
+        assertEquals(ResultStatus.WAITING_RESULT_OPEN_TIME, result.resultStatus());
+    }
+
+    @Test
     void getSurveyStatusReturnsWaitingResultOpenTimeWhenPeerCountIsEnoughBeforeOpenTime() {
         SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
         submissionRepository.selfCompleted = true;
@@ -376,7 +406,33 @@ class SurveyCommandServiceTest {
 
         @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
-            throw new UnsupportedOperationException("not used in survey command tests");
+            SurveyRecord survey = surveys.get(surveyId);
+            surveys.put(surveyId, new SurveyRecord(
+                    survey.id(),
+                    survey.userNickname(),
+                    survey.surveyCode(),
+                    survey.surveyStatus(),
+                    resultStatus,
+                    survey.resultGenerationAttemptCount(),
+                    survey.requiredPeerSubmissionCount(),
+                    survey.resultAvailableAt(),
+                    survey.createdAt(),
+                    survey.characterPackKey(),
+                    survey.characterPackVersion()
+            ));
+        }
+
+        @Override
+        public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+            SurveyRecord survey = surveys.get(surveyId);
+            if (List.of(
+                    ResultStatus.WAITING_SELF_RESPONSE,
+                    ResultStatus.COLLECTING_PEER_RESPONSES,
+                    ResultStatus.WAITING_RESULT_OPEN_TIME,
+                    ResultStatus.GENERATING
+            ).contains(survey.resultStatus())) {
+                updateResultStatus(surveyId, resultStatus);
+            }
         }
     }
 

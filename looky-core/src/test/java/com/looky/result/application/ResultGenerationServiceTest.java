@@ -530,6 +530,33 @@ class ResultGenerationServiceTest {
         @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(resultStatus);
+            SurveyRecord survey = surveys.get(surveyId);
+            surveys.put(surveyId, new SurveyRecord(
+                    survey.id(),
+                    survey.userNickname(),
+                    survey.surveyCode(),
+                    survey.surveyStatus(),
+                    resultStatus,
+                    survey.resultGenerationAttemptCount(),
+                    survey.requiredPeerSubmissionCount(),
+                    survey.resultAvailableAt(),
+                    survey.createdAt(),
+                    survey.characterPackKey(),
+                    survey.characterPackVersion()
+            ));
+        }
+
+        @Override
+        public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+            SurveyRecord survey = surveys.get(surveyId);
+            if (List.of(
+                    ResultStatus.WAITING_SELF_RESPONSE,
+                    ResultStatus.COLLECTING_PEER_RESPONSES,
+                    ResultStatus.WAITING_RESULT_OPEN_TIME,
+                    ResultStatus.GENERATING
+            ).contains(survey.resultStatus())) {
+                updateResultStatus(surveyId, resultStatus);
+            }
         }
     }
 

@@ -146,6 +146,8 @@ public class SurveyCommandService implements SurveyService {
         }
         SurveyRecord survey = surveyRepository.findById(submission.surveyId())
                 .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
+        ResultStatus resultStatus = resultStatusResolver.resolve(survey);
+        surveyRepository.syncResultStatus(survey.id(), resultStatus);
         long peerSubmissionCount = submissionRepository.countCompletedPeerSubmissions(submission.surveyId());
         log.info(
                 "submission.completed surveyId={} surveyCode={} submissionId={} submitterType={} peerSubmissionCount={} requiredPeerSubmissionCount={} resultStatus={} submittedAt={}",
@@ -155,7 +157,7 @@ public class SurveyCommandService implements SurveyService {
                 submission.submitterType(),
                 peerSubmissionCount,
                 survey.requiredPeerSubmissionCount(),
-                resultStatusResolver.resolve(survey),
+                resultStatus,
                 result.submittedAt()
         );
         return result;

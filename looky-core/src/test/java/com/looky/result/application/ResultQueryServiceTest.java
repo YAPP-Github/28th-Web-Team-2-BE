@@ -281,6 +281,11 @@ class ResultQueryServiceTest {
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
+
+        @Override
+        public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+            throw new UnsupportedOperationException("not used in result query tests");
+        }
     }
 
     private static final class FakeResultRepository implements ResultRepository {

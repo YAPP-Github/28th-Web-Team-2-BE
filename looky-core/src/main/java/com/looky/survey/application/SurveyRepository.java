@@ -33,4 +33,6 @@ public interface SurveyRepository {
     boolean markGenerating(Long surveyId, int maxAttempts);
 
     void updateResultStatus(Long surveyId, ResultStatus resultStatus);
+
+    void syncResultStatus(Long surveyId, ResultStatus resultStatus);
 }

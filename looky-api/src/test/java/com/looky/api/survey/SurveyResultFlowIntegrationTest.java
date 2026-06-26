@@ -107,6 +107,28 @@ class SurveyResultFlowIntegrationTest {
     }
 
     @Test
+    void surveyFlowAcceptsAdditionalPeerResponsesAfterRequiredCountIsReached() {
+        SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
+
+        SubmissionStartedResult selfSubmission = surveyService.startSubmission(survey.surveyCode());
+        surveyService.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
+        for (int i = 0; i < 3; i++) {
+            SubmissionStartedResult peerSubmission = surveyService.startSubmission(survey.surveyCode());
+            surveyService.submitAnswers(peerSubmission.submissionId(), answersFrom(peerSubmission));
+        }
+        resultGenerationService.generateReadyResults();
+
+        SubmissionStartedResult extraPeerSubmission = surveyService.startSubmission(survey.surveyCode());
+        surveyService.submitAnswers(extraPeerSubmission.submissionId(), answersFrom(extraPeerSubmission));
+
+        var status = surveyService.getSurveyStatus(survey.surveyCode());
+
+        assertEquals(SubmitterType.PEER, extraPeerSubmission.submitterType());
+        assertEquals(4, status.peerSubmissionCount());
+        assertEquals(ResultStatus.READY, status.resultStatus());
+    }
+
+    @Test
     void resultGenerationSourceReaderKeepsSelfAndPeerAnswerSourcesSeparate() {
         SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
 

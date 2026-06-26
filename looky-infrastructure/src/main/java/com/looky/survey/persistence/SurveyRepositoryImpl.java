@@ -95,6 +95,15 @@ public class SurveyRepositoryImpl implements SurveyRepository {
         entity.updateResultStatus(resultStatus);
     }
 
+    @Override
+    public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+        surveyJpaRepository.syncResultStatusWhenCurrentStatusIn(
+                surveyId,
+                resultStatus,
+                RESULT_GENERATION_CANDIDATE_STATUSES
+        );
+    }
+
     private SurveyRecord toRecord(SurveyJpaEntity entity) {
         return new SurveyRecord(
                 entity.getId(),
