@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,7 +90,7 @@ class ResultGenerationServiceTest {
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
         sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, SubmitterType.SELF, "SELF", com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
         narrativeClient.narrative = new ResultNarrative(
-                new ResultNarrative.Overview("마음을 잘 여는 사람", "종합 분석", "새로운 대화를 시작해보세요."),
+                new ResultNarrative.Overview("마음을 잘 여는 사람", "대화를 여는 다정한 기운", "종합 분석 본문", "새로운 대화를 시작해보세요."),
                 Map.of(101L, List.of("호기심 많은")),
                 Map.of(
                         ResultQuadrantType.OPEN, new ResultNarrative.QuadrantNarrative("탐험가", List.of("호기심 많은", "새로운 거 좋아"), "공유 강점", "open"),
@@ -118,13 +119,16 @@ class ResultGenerationServiceTest {
         assertEquals(1, generatedCount);
         assertEquals(
                 List.of(
-                        "character-packs/pomang/v1/base/base.png",
-                        "character-packs/pomang/v1/variants/open-cheer.png"
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/blind-magnifier.png",
+                        "character-packs/pomang/qa-20260625/variants/hidden-letter.png",
+                        "character-packs/pomang/qa-20260625/variants/open-stars.png",
+                        "character-packs/pomang/qa-20260625/variants/unknown-clock.png"
                 ),
                 resultImageClient.generatedRequests.getFirst().referenceAssetKeys()
         );
         assertEquals(
-                "open-cheer",
+                "open-stars",
                 selectedVariantKey(resultRepository.resultsBySurveyId.get(survey.id()), ResultQuadrantType.OPEN)
         );
     }
@@ -141,13 +145,74 @@ class ResultGenerationServiceTest {
 
         assertEquals(
                 """
-                        Image 1: base character reference. Preserve the core character identity, silhouette, and illustration style from this image.
-                        Image 2: OPEN quadrant variant reference. Use the pose, facial expression, props, and mood cues from this image.
-                        Create one final illustration that keeps the same character from Image 1 while reflecting the OPEN quadrant cues from Image 2.
-                        Additional scene guidance:
-                        OPEN image prompt
+                        The hamster character in the attached reference images is our product character.
+                        Use the references only to preserve the hamster's core identity, proportions, color palette, and illustration style.
+                        Do not copy the exact pose, scene, composition, background, props, or facial expression from any reference image.
+                        Create a fresh illustration with a distinct scene, camera angle, pose, expression, and mood for this Johari Window quadrant.
+                        얼굴 이목구비 눈코입, 체형, 색상, 스타일은 모두 유지해줘.
+                        하얀색 무광의 귀여운 햄스터 3D 랜더링 이미지, 검정색 눈과 입만 살짝 유광, 얼굴의 이목구비 눈코입, 체형, 색상, 스타일 모두 유지.
+                        이번 이미지는 OPEN image prompt을 표현해줘.
+                        캐릭터의 표정, 포즈, 소품은 해당 상황이 한눈에 드러나게 바꾸되, 배경은 캐릭터를 돋보이게 하는 저밀도 배경으로 구성해줘.
+                        복잡한 오브젝트는 최소화하고, 큰 면 위주의 단순한 배경, 부드러운 파스텔 컬러, 여백이 많은 구성을 사용해줘.
+                        캐릭터는 화면 중앙에 크게 배치하고, 배경 요소는 보조적으로만 넣어줘.
                         """,
                 resultImageClient.generatedRequests.getFirst().imagePrompt()
+        );
+    }
+
+    @Test
+    void generateReadyResultsSubmitsImageWorkToExecutor() {
+        CountingExecutor executor = new CountingExecutor();
+        ResultGenerationService executorBackedImageService = new ResultGenerationService(
+                surveyRepository,
+                submissionRepository,
+                resultRepository,
+                resultGeneratorClient,
+                sourceReader,
+                narrativeClient,
+                new ResultGenerationPolicy(3),
+                clock,
+                resultImageClient,
+                resultImageStorage,
+                characterPackRepository,
+                executor
+        );
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1), "pomang", "v1");
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        resultRepository.resultsBySurveyId.put(survey.id(), narrativeReadyResult(survey.id()));
+
+        int generatedCount = executorBackedImageService.generateReadyResults();
+
+        assertEquals(1, generatedCount);
+        assertEquals(4, executor.executedCount);
+        assertEquals(4, resultImageClient.generatedRequests.size());
+    }
+
+    @Test
+    void generateReadyResultsFailsWhenReferenceVariantsDoNotCoverEveryQuadrant() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1), "pomang", "v1");
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        resultRepository.resultsBySurveyId.put(survey.id(), narrativeReadyResult(survey.id()));
+        characterPackRepository.referenceVariants = characterPackRepository.referenceVariants.stream()
+                .filter(variant -> variant.quadrantType() != ResultQuadrantType.UNKNOWN)
+                .toList();
+
+        int generatedCount = imageService.generateReadyResults();
+
+        assertEquals(0, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING), surveyRepository.statusUpdates.get(survey.id()));
+        assertTrue(resultImageClient.generatedRequests.isEmpty());
+        assertEquals(
+                QuadrantWorkStatus.NARRATIVE_READY,
+                resultRepository.resultsBySurveyId.get(survey.id()).quadrants().stream()
+                        .filter(quadrant -> quadrant.quadrantType() == ResultQuadrantType.OPEN)
+                        .findFirst()
+                        .orElseThrow()
+                        .workStatus()
         );
     }
 
@@ -405,11 +470,12 @@ class ResultGenerationServiceTest {
         return new ResultRecord(
                 10L + surveyId,
                 surveyId,
+                new ResultOverviewRecord("마음을 잘 여는 사람", "대화를 여는 다정한 기운", "종합 분석 본문", "새로운 대화를 시작해보세요."),
                 ResultQuadrantType.values().length == 0 ? List.of() : List.of(
-                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "OPEN 해석", "OPEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
-                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "BLIND 해석", "BLIND image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
-                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "HIDDEN 해석", "HIDDEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0),
-                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "UNKNOWN 해석", "UNKNOWN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0)
+                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "OPEN 해석", "OPEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "OPEN 탐험가", List.of("호기심 많은", "새로운 거 좋아")),
+                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "BLIND 해석", "BLIND image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "BLIND 관찰자", List.of("다정한", "세심한")),
+                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "HIDDEN 해석", "HIDDEN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "HIDDEN 사색가", List.of("차분한", "깊이 있는")),
+                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "UNKNOWN 해석", "UNKNOWN image prompt", null, null, QuadrantWorkStatus.NARRATIVE_READY, 0, "UNKNOWN 개척자", List.of("가능성 큰", "새 판 짜봐"))
                 )
         );
     }
@@ -443,6 +509,11 @@ class ResultGenerationServiceTest {
                 String characterPackVersion
         ) {
             throw new UnsupportedOperationException("not used in result generation tests");
+        }
+
+        @Override
+        public Optional<SurveyRecord> findById(Long surveyId) {
+            return Optional.ofNullable(surveys.get(surveyId));
         }
 
         @Override
@@ -495,6 +566,33 @@ class ResultGenerationServiceTest {
         @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
             statusUpdates.computeIfAbsent(surveyId, ignored -> new ArrayList<>()).add(resultStatus);
+            SurveyRecord survey = surveys.get(surveyId);
+            surveys.put(surveyId, new SurveyRecord(
+                    survey.id(),
+                    survey.userNickname(),
+                    survey.surveyCode(),
+                    survey.surveyStatus(),
+                    resultStatus,
+                    survey.resultGenerationAttemptCount(),
+                    survey.requiredPeerSubmissionCount(),
+                    survey.resultAvailableAt(),
+                    survey.createdAt(),
+                    survey.characterPackKey(),
+                    survey.characterPackVersion()
+            ));
+        }
+
+        @Override
+        public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+            SurveyRecord survey = surveys.get(surveyId);
+            if (List.of(
+                    ResultStatus.WAITING_SELF_RESPONSE,
+                    ResultStatus.COLLECTING_PEER_RESPONSES,
+                    ResultStatus.WAITING_RESULT_OPEN_TIME,
+                    ResultStatus.GENERATING
+            ).contains(survey.resultStatus())) {
+                updateResultStatus(surveyId, resultStatus);
+            }
         }
     }
 
@@ -583,6 +681,7 @@ class ResultGenerationServiceTest {
                     new ResultRecord(
                             result.id(),
                             result.surveyId(),
+                            result.overview(),
                             result.quadrants().stream()
                                     .map(quadrant -> quadrant.quadrantType() == quadrantType
                                             ? new ResultQuadrantRecord(
@@ -613,13 +712,46 @@ class ResultGenerationServiceTest {
             if (surveyId.equals(failSaveReadySurveyId)) {
                 throw new IllegalStateException("save ready result failed");
             }
-            resultsBySurveyId.put(surveyId, new ResultRecord(10L + surveyId, surveyId, quadrants));
+            ResultRecord existing = resultsBySurveyId.get(surveyId);
+            resultsBySurveyId.put(surveyId, new ResultRecord(
+                    10L + surveyId,
+                    surveyId,
+                    existing == null ? null : existing.overview(),
+                    quadrants
+            ));
             savedAtBySurveyId.put(surveyId, now);
             surveyRepository.updateResultStatus(surveyId, ResultStatus.READY);
         }
     }
 
     private static final class FakeCharacterPackRepository implements CharacterPackRepository {
+        private List<CharacterPackVariantRecord> referenceVariants = List.of(
+                new CharacterPackVariantRecord(
+                        "blind-magnifier",
+                        ResultQuadrantType.BLIND,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/blind-magnifier.png"
+                ),
+                new CharacterPackVariantRecord(
+                        "hidden-letter",
+                        ResultQuadrantType.HIDDEN,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/hidden-letter.png"
+                ),
+                new CharacterPackVariantRecord(
+                        "open-stars",
+                        ResultQuadrantType.OPEN,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/open-stars.png"
+                ),
+                new CharacterPackVariantRecord(
+                        "unknown-clock",
+                        ResultQuadrantType.UNKNOWN,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/unknown-clock.png"
+                )
+        );
+
         @Override
         public Optional<com.looky.characterpack.application.CharacterPackSnapshot> findActiveSnapshot() {
             throw new UnsupportedOperationException("not used in result generation tests");
@@ -627,20 +759,14 @@ class ResultGenerationServiceTest {
 
         @Override
         public Optional<CharacterPackVariantRecord> findPrimaryVariant(String packKey, String packVersion, ResultQuadrantType quadrantType) {
-            return Optional.of(new CharacterPackVariantRecord(
-                    quadrantType == ResultQuadrantType.OPEN ? "open-cheer" :
-                            quadrantType == ResultQuadrantType.BLIND ? "blind-magnifier" :
-                                    quadrantType == ResultQuadrantType.HIDDEN ? "hidden-letter" : "unknown-teary",
-                    quadrantType,
-                    "character-packs/%s/%s/base/base.png".formatted(packKey, packVersion),
-                    "character-packs/%s/%s/variants/%s.png".formatted(
-                            packKey,
-                            packVersion,
-                            quadrantType == ResultQuadrantType.OPEN ? "open-cheer" :
-                                    quadrantType == ResultQuadrantType.BLIND ? "blind-magnifier" :
-                                            quadrantType == ResultQuadrantType.HIDDEN ? "hidden-letter" : "unknown-teary"
-                    )
-            ));
+            return referenceVariants.stream()
+                    .filter(variant -> variant.quadrantType() == quadrantType)
+                    .findFirst();
+        }
+
+        @Override
+        public List<CharacterPackVariantRecord> findReferenceVariants(String packKey, String packVersion) {
+            return referenceVariants;
         }
     }
 
@@ -676,7 +802,7 @@ class ResultGenerationServiceTest {
     }
 
     private static final class FakeResultNarrativeClient implements ResultNarrativeClient {
-        private ResultNarrative narrative = new ResultNarrative(new ResultNarrative.Overview("", "", ""), Map.of(), Map.of());
+        private ResultNarrative narrative = new ResultNarrative(new ResultNarrative.Overview("", "", "", ""), Map.of(), Map.of());
         private int calls;
 
         @Override
@@ -700,6 +826,16 @@ class ResultGenerationServiceTest {
         @Override
         public String upload(String surveyCode, ResultQuadrantType quadrantType, byte[] imageBytes) {
             return "surveys/%s/results/%s.png".formatted(surveyCode, quadrantType.name());
+        }
+    }
+
+    private static final class CountingExecutor implements Executor {
+        private int executedCount;
+
+        @Override
+        public void execute(Runnable command) {
+            executedCount++;
+            command.run();
         }
     }
 }

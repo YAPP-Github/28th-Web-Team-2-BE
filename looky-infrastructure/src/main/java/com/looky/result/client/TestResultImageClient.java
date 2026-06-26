@@ -35,4 +35,9 @@ public class TestResultImageClient implements ResultImageClient {
     public List<String> generatedPrompts() {
         return List.copyOf(generatedPrompts);
     }
+
+    @Override
+    public String modelName() {
+        return "test-image-stub";
+    }
 }

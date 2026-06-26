@@ -34,4 +34,17 @@ public interface SurveyJpaRepository extends JpaRepository<SurveyJpaEntity, Long
             @Param("currentStatuses") Collection<ResultStatus> currentStatuses,
             @Param("maxAttempts") int maxAttempts
     );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update SurveyJpaEntity survey
+            set survey.resultStatus = :nextStatus
+            where survey.id = :surveyId
+              and survey.resultStatus in (:currentStatuses)
+            """)
+    int syncResultStatusWhenCurrentStatusIn(
+            @Param("surveyId") Long surveyId,
+            @Param("nextStatus") ResultStatus nextStatus,
+            @Param("currentStatuses") Collection<ResultStatus> currentStatuses
+    );
 }

@@ -10,7 +10,12 @@ public record ResultNarrative(
         Map<Long, List<String>> adjectivesBySubmissionAnswerId,
         Map<ResultQuadrantType, QuadrantNarrative> quadrants
 ) {
-    public record Overview(String keyword, String analysis, String tip) {
+    public record Overview(
+            String keyword,
+            String analysisTitle,
+            String analysisBody,
+            String tip
+    ) {
     }
 
     public record QuadrantNarrative(

@@ -16,6 +16,7 @@ import com.looky.question.persistence.QuestionJpaEntity;
 import com.looky.question.persistence.QuestionJpaRepository;
 import com.looky.survey.persistence.SurveyJpaEntity;
 import com.looky.survey.persistence.SurveyJpaRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Repository
+@Slf4j
 @Transactional
 public class SubmissionRepositoryImpl implements SubmissionRepository {
 
@@ -90,6 +92,14 @@ public class SubmissionRepositoryImpl implements SubmissionRepository {
                 ))
                 .toList();
         submissionQuestionJpaRepository.saveAll(submissionQuestions);
+        log.info(
+                "submission.persistence.started surveyId={} submissionId={} submitterType={} submitterKey={} questionCount={}",
+                surveyId,
+                submission.getId(),
+                submitterType,
+                submitterKey,
+                questions.size()
+        );
 
         return new SubmissionStartedResult(
                 submission.getId(),
@@ -158,6 +168,15 @@ public class SubmissionRepositoryImpl implements SubmissionRepository {
                 .toList();
         submissionAnswerJpaRepository.saveAll(answerEntities);
         submission.complete(now);
+        log.info(
+                "submission.persistence.completed surveyId={} submissionId={} submitterType={} submitterKey={} answerCount={} submittedAt={}",
+                submission.getSurvey().getId(),
+                submission.getId(),
+                submission.getSubmitterType(),
+                submission.getSubmitterKey(),
+                answers.size(),
+                now
+        );
 
         return new SubmissionCompletedResult(submission.getId(), submission.getSubmitterType(), SubmissionStatus.COMPLETED, now);
     }

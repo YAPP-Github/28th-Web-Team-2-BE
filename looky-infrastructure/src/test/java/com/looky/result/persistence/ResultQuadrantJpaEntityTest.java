@@ -40,10 +40,10 @@ class ResultQuadrantJpaEntityTest {
     void completeImageStoresSelectedVariantKey() {
         var quadrant = new ResultQuadrantJpaEntity(null, ResultQuadrantType.OPEN, "해석", "prompt");
 
-        quadrant.completeImage(null, "surveys/code/results/OPEN.png", "open-cheer");
+        quadrant.completeImage(null, "surveys/code/results/OPEN.png", "open-stars");
 
         assertEquals("surveys/code/results/OPEN.png", quadrant.getS3ObjectKey());
-        assertEquals("open-cheer", quadrant.getSelectedVariantKey());
+        assertEquals("open-stars", quadrant.getSelectedVariantKey());
         assertEquals(QuadrantWorkStatus.IMAGE_READY, quadrant.getWorkStatus());
     }
 }

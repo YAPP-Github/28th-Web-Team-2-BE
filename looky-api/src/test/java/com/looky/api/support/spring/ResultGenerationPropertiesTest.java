@@ -10,7 +10,10 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest(classes = LookyApiApplication.class)
+@SpringBootTest(classes = LookyApiApplication.class, properties = {
+        "spring.flyway.enabled=false",
+        "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 @ActiveProfiles("local")
 class ResultGenerationPropertiesTest {
 

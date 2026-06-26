@@ -82,6 +82,11 @@ class SurveyResultFlowIntegrationTest {
         assertEquals("https://signed.test/surveys/" + survey.surveyCode() + "/results/BLIND.png", result.quadrantImageUrls().get("BLIND"));
         assertEquals("https://signed.test/surveys/" + survey.surveyCode() + "/results/HIDDEN.png", result.quadrantImageUrls().get("HIDDEN"));
         assertEquals("https://signed.test/surveys/" + survey.surveyCode() + "/results/UNKNOWN.png", result.quadrantImageUrls().get("UNKNOWN"));
+        assertEquals("마음을 잘 여는 사람", result.overall().keyword());
+        assertEquals("대화를 여는 다정한 기운", result.overall().analysisTitle());
+        assertEquals(3, result.overall().tip().lines().count());
+        assertEquals(2, result.quadrants().get("OPEN").adjectiveKeywords().size());
+        assertEquals("OPEN", result.quadrants().keySet().toArray()[0]);
     }
 
     @Test
@@ -99,6 +104,28 @@ class SurveyResultFlowIntegrationTest {
 
         assertEquals(ResultStatus.COLLECTING_PEER_RESPONSES, result.resultStatus());
         assertEquals(null, result.quadrantImageUrls());
+    }
+
+    @Test
+    void surveyFlowAcceptsAdditionalPeerResponsesAfterRequiredCountIsReached() {
+        SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
+
+        SubmissionStartedResult selfSubmission = surveyService.startSubmission(survey.surveyCode());
+        surveyService.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
+        for (int i = 0; i < 3; i++) {
+            SubmissionStartedResult peerSubmission = surveyService.startSubmission(survey.surveyCode());
+            surveyService.submitAnswers(peerSubmission.submissionId(), answersFrom(peerSubmission));
+        }
+        resultGenerationService.generateReadyResults();
+
+        SubmissionStartedResult extraPeerSubmission = surveyService.startSubmission(survey.surveyCode());
+        surveyService.submitAnswers(extraPeerSubmission.submissionId(), answersFrom(extraPeerSubmission));
+
+        var status = surveyService.getSurveyStatus(survey.surveyCode());
+
+        assertEquals(SubmitterType.PEER, extraPeerSubmission.submitterType());
+        assertEquals(4, status.peerSubmissionCount());
+        assertEquals(ResultStatus.READY, status.resultStatus());
     }
 
     @Test

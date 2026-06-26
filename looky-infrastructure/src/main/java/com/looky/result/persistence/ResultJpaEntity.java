@@ -32,6 +32,8 @@ public class ResultJpaEntity {
 
     @Column(name = "overall_keyword", length = 120)
     private String overallKeyword;
+    @Column(name = "overall_analysis_title", length = 120)
+    private String overallAnalysisTitle;
     @Column(name = "overall_analysis", columnDefinition = "text")
     private String overallAnalysis;
     @Column(name = "action_tip", columnDefinition = "text")
@@ -75,9 +77,13 @@ public class ResultJpaEntity {
         return survey;
     }
     public String getOverallKeyword() { return overallKeyword; }
+    public String getOverallAnalysisTitle() { return overallAnalysisTitle; }
     public String getOverallAnalysis() { return overallAnalysis; }
     public String getActionTip() { return actionTip; }
     public void saveOverview(com.looky.result.application.ResultNarrative.Overview overview) {
-        this.overallKeyword = overview.keyword(); this.overallAnalysis = overview.analysis(); this.actionTip = overview.tip();
+        this.overallKeyword = overview.keyword();
+        this.overallAnalysisTitle = overview.analysisTitle();
+        this.overallAnalysis = overview.analysisBody();
+        this.actionTip = overview.tip();
     }
 }

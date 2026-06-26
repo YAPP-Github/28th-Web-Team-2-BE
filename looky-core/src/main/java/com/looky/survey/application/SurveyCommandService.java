@@ -21,6 +21,7 @@ import com.looky.survey.application.dto.SurveyStatusResult;
 import com.looky.survey.domain.ResultStatus;
 import com.looky.survey.domain.SurveyStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -35,6 +36,7 @@ import java.util.Arrays;
 import java.util.Locale;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class SurveyCommandService implements SurveyService {
 
@@ -60,6 +62,18 @@ public class SurveyCommandService implements SurveyService {
     public SurveyCreatedResult createSurvey(CreateSurveyCommand command) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         SurveyRecord survey = saveNewSurveyWithRetry(command.userNickname(), now);
+        log.info(
+                "survey.created surveyId={} surveyCode={} ownerNickname={} resultStatus={} surveyStatus={} requiredPeerSubmissionCount={} resultAvailableAt={} characterPackKey={} characterPackVersion={}",
+                survey.id(),
+                survey.surveyCode(),
+                survey.userNickname(),
+                survey.resultStatus(),
+                survey.surveyStatus(),
+                survey.requiredPeerSubmissionCount(),
+                survey.resultAvailableAt(),
+                survey.characterPackKey(),
+                survey.characterPackVersion()
+        );
 
         return new SurveyCreatedResult(
                 survey.id(),
@@ -79,7 +93,7 @@ public class SurveyCommandService implements SurveyService {
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
         if (!submissionRepository.existsSelfSubmission(survey.id())) {
             List<QuestionRecord> questions = personalizeQuestions(survey.userNickname(), pickQuestions(SubmitterType.SELF));
-            return submissionRepository.saveStartedSubmission(
+            SubmissionStartedResult result = submissionRepository.saveStartedSubmission(
                     survey.id(),
                     survey.userNickname(),
                     SubmitterType.SELF,
@@ -87,13 +101,33 @@ public class SurveyCommandService implements SurveyService {
                     questions,
                     OffsetDateTime.now(clock)
             );
+            log.info(
+                    "submission.started surveyId={} surveyCode={} submissionId={} submitterType={} targetNickname={} questionCount={}",
+                    survey.id(),
+                    survey.surveyCode(),
+                    result.submissionId(),
+                    result.submitterType(),
+                    result.targetNickname(),
+                    result.questions().size()
+            );
+            return result;
         }
         if (survey.surveyStatus() != SurveyStatus.COLLECTING) {
             throw new LookyException(ErrorCode.SURVEY_NOT_COLLECTING);
         }
 
         List<QuestionRecord> questions = personalizeQuestions(survey.userNickname(), pickQuestions(SubmitterType.PEER));
-        return savePeerSubmissionWithRetry(survey, questions);
+        SubmissionStartedResult result = savePeerSubmissionWithRetry(survey, questions);
+        log.info(
+                "submission.started surveyId={} surveyCode={} submissionId={} submitterType={} targetNickname={} questionCount={}",
+                survey.id(),
+                survey.surveyCode(),
+                result.submissionId(),
+                result.submitterType(),
+                result.targetNickname(),
+                result.questions().size()
+        );
+        return result;
     }
 
     @Override
@@ -110,6 +144,22 @@ public class SurveyCommandService implements SurveyService {
         if (submission.submitterType() == SubmitterType.SELF) {
             surveyRepository.markCollecting(submission.surveyId());
         }
+        SurveyRecord survey = surveyRepository.findById(submission.surveyId())
+                .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
+        ResultStatus resultStatus = resultStatusResolver.resolve(survey);
+        surveyRepository.syncResultStatus(survey.id(), resultStatus);
+        long peerSubmissionCount = submissionRepository.countCompletedPeerSubmissions(submission.surveyId());
+        log.info(
+                "submission.completed surveyId={} surveyCode={} submissionId={} submitterType={} peerSubmissionCount={} requiredPeerSubmissionCount={} resultStatus={} submittedAt={}",
+                survey.id(),
+                survey.surveyCode(),
+                submissionId,
+                submission.submitterType(),
+                peerSubmissionCount,
+                survey.requiredPeerSubmissionCount(),
+                resultStatus,
+                result.submittedAt()
+        );
         return result;
     }
 

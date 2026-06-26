@@ -2,6 +2,7 @@ package com.looky.api.survey;
 
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
+import com.looky.result.application.ResultOverviewRecord;
 import com.looky.result.application.ResultQueryService;
 import com.looky.survey.application.SurveyService;
 import com.looky.survey.application.dto.AnswerCommand;
@@ -10,6 +11,7 @@ import com.looky.survey.application.dto.SubmissionCompletedResult;
 import com.looky.survey.application.dto.SubmissionStartedResult;
 import com.looky.survey.application.dto.SubmitAnswersCommand;
 import com.looky.survey.application.dto.SurveyCreatedResult;
+import com.looky.survey.application.dto.SurveyResultQuadrant;
 import com.looky.survey.application.dto.SurveyResultResult;
 import com.looky.survey.application.dto.SurveyStatusResult;
 import com.looky.submission.domain.SubmissionStatus;
@@ -237,6 +239,18 @@ class SurveyControllerTest {
                                 "BLIND", "타인이 먼저 발견하는 특성",
                                 "HIDDEN", "혼자 알고 있는 내면",
                                 "UNKNOWN", "아직 발견되지 않은 가능성"
+                        ),
+                        new ResultOverviewRecord(
+                                "마음을 잘 여는 사람",
+                                "대화를 여는 다정한 기운",
+                                "낯선 자리에서도 \"먼저 같이 해볼까요?\" 하고 말을 건넵니다. 주변도 금세 편하게 반응하고 흐름이 부드러워집니다. 끝나고 나면 따뜻한 여운이 오래 남습니다.",
+                                "앞장서다 혼자 짐을 다 안을 때가 있어요.\n한 번만 속도 맞춰볼까요? 하고 먼저 물어보세요.\n주변도 더 편하게 움직이고 관계가 오래 따뜻하게 돌아올 거예요."
+                        ),
+                        Map.of(
+                                "OPEN", new SurveyResultQuadrant("탐험가", List.of("탐험 실험 다 좋아 인간", "새로운 거? 무조건 해봐야지"), "서로 알고 있는 강점", "https://cdn.looky.my/results/b91/open.png"),
+                                "BLIND", new SurveyResultQuadrant("관찰자", List.of("사람 잘 챙기기 1순위", "분위기 메이커"), "타인이 먼저 발견하는 특성", "https://cdn.looky.my/results/b91/blind.png"),
+                                "HIDDEN", new SurveyResultQuadrant("사색가", List.of("혼자가 편해", "디테일 집착"), "혼자 알고 있는 내면", "https://cdn.looky.my/results/b91/hidden.png"),
+                                "UNKNOWN", new SurveyResultQuadrant("개척자", List.of("한 번 꽂히면 끝장", "새로운 곳 좋아"), "아직 발견되지 않은 가능성", "https://cdn.looky.my/results/b91/unknown.png")
                         )
                 ));
 
@@ -252,6 +266,12 @@ class SurveyControllerTest {
                 .andExpect(jsonPath("$.payload.quadrantImageUrls.UNKNOWN").value("https://cdn.looky.my/results/b91/unknown.png"))
                 .andExpect(jsonPath("$.payload.quadrantInterpretations.OPEN").value("서로 알고 있는 강점"))
                 .andExpect(jsonPath("$.payload.quadrantInterpretations.BLIND").value("타인이 먼저 발견하는 특성"))
+                .andExpect(jsonPath("$.payload.overall.keyword").value("마음을 잘 여는 사람"))
+                .andExpect(jsonPath("$.payload.overall.analysisTitle").value("대화를 여는 다정한 기운"))
+                .andExpect(jsonPath("$.payload.overall.analysisBody").value("낯선 자리에서도 \"먼저 같이 해볼까요?\" 하고 말을 건넵니다. 주변도 금세 편하게 반응하고 흐름이 부드러워집니다. 끝나고 나면 따뜻한 여운이 오래 남습니다."))
+                .andExpect(jsonPath("$.payload.overall.tip").value("앞장서다 혼자 짐을 다 안을 때가 있어요.\n한 번만 속도 맞춰볼까요? 하고 먼저 물어보세요.\n주변도 더 편하게 움직이고 관계가 오래 따뜻하게 돌아올 거예요."))
+                .andExpect(jsonPath("$.payload.quadrants.OPEN.definitionKeyword").value("탐험가"))
+                .andExpect(jsonPath("$.payload.quadrants.OPEN.adjectiveKeywords[0]").value("탐험 실험 다 좋아 인간"))
                 .andExpect(jsonPath("$.payload.mainImageUrl").doesNotExist());
     }
 

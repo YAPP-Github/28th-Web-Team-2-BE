@@ -7,6 +7,7 @@ import com.looky.result.domain.ResultQuadrantType;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -43,5 +44,18 @@ public class CharacterPackRepositoryImpl implements CharacterPackRepository {
                         variant.getVersion().getBaseAssetKey(),
                         variant.getAssetKey()
                 ));
+    }
+
+    @Override
+    public List<CharacterPackVariantRecord> findReferenceVariants(String packKey, String packVersion) {
+        return characterPackVariantJpaRepository.findByVersion_Pack_PackKeyAndVersion_VersionOrderBySortOrderAsc(packKey, packVersion)
+                .stream()
+                .map(variant -> new CharacterPackVariantRecord(
+                        variant.getVariantKey(),
+                        variant.getQuadrantType(),
+                        variant.getVersion().getBaseAssetKey(),
+                        variant.getAssetKey()
+                ))
+                .toList();
     }
 }

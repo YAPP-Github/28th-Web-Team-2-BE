@@ -107,4 +107,18 @@ AGENTS.md
 
 /.gradle-local/
 /backend-dev.tar
+
 docs/superpowers/.DS_Store
+
+/.env
+
+# Local QA/demo/preview artifacts excluded from mainline commits.
+/docs/**
+/scripts/deploy-dev.sh
+/decks/
+/looky-api/src/main/resources/static/demo/**
+/looky-api/src/main/java/com/looky/api/debug/**
+/looky-api/src/test/java/com/looky/api/debug/**
+/looky-api/src/test/java/com/looky/api/support/spring/LocalDemoProfileIntegrationTest.java
+/looky-core/src/main/java/com/looky/result/application/ResultPromptPreview*.java
+

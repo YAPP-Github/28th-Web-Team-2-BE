@@ -1,8 +1,11 @@
 package com.looky.result.client;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.looky.result.application.ResultAnswerAdjectiveRecord;
 import com.looky.result.application.ResultNarrative;
 import com.looky.result.application.ResultNarrativeClient;
+import com.looky.result.application.ResultPromptTemplates;
 import com.looky.result.domain.ResultQuadrantType;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.responses.StructuredResponseCreateParams;
@@ -12,6 +15,7 @@ import org.springframework.context.annotation.Profile;
 
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +23,8 @@ import java.util.Set;
 @Component
 @Profile("!test & !local")
 public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
+
+    private static final int TIP_LINE_COUNT = 3;
 
     private final String narrativeModel;
 
@@ -30,20 +36,11 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
     public ResultNarrative generate(List<ResultAnswerAdjectiveRecord> answers) {
         OpenAiNarrativeOutput output = OpenAIOkHttpClient.fromEnv().responses().create(
                         StructuredResponseCreateParams.<OpenAiNarrativeOutput>builder()
-                                .model(narrativeModel)
-                                .instructions("""
-                                        You are a Korean Johari-window analyst. Extract concise Korean adjectives for every survey answer.
-                                        SELF answers are the survey owner's self-perception. PEER answers are other people's perception of the owner.
-                                        Compare the two groups when classifying evidence: OPEN is shared by SELF and PEER, BLIND is supported by PEER but not SELF, HIDDEN is supported by SELF but not PEER, and UNKNOWN is a plausible potential not established by either group.
-                                        Return one overall Korean keyword, one overall Korean analysis, and one actionable Korean tip titled "이렇게 해보는 건 어때요?".
-                                        Then classify all evidence into exactly OPEN, BLIND, HIDDEN, and UNKNOWN.
-                                        For each quadrant, return one character-like Korean definition keyword, exactly two short conversational Korean adjective keywords, one Korean interpretation, and one English abstract image prompt.
-                                        For every quadrant, write a concise Korean interpretation and an English image prompt for an abstract, non-identifying illustration.
-                                        Do not include names, raw survey text, or sensitive personal data in interpretations or image prompts.
-                                        """)
-                                .input(prompt(answers))
-                                .text(OpenAiNarrativeOutput.class)
-                                .build()
+                .model(narrativeModel)
+                .instructions(ResultPromptTemplates.NARRATIVE_INSTRUCTIONS)
+                .input(ResultPromptTemplates.composeNarrativeInput(answers))
+                .text(OpenAiNarrativeOutput.class)
+                .build()
                 ).output().stream()
                 .flatMap(item -> item.message().stream())
                 .flatMap(message -> message.content().stream())
@@ -53,27 +50,40 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
         return toResultNarrative(output, answers.stream().map(ResultAnswerAdjectiveRecord::submissionAnswerId).toList());
     }
 
+    @Override
+    public String modelName() {
+        return narrativeModel;
+    }
+
     static ResultNarrative toResultNarrative(OpenAiNarrativeOutput output, List<Long> expectedAnswerIds) {
         if (output == null || output.overall == null || output.answerAdjectives == null || output.quadrants == null) {
             throw new IllegalArgumentException("OpenAI narrative response is incomplete");
         }
-        if (isBlank(output.overall.keyword) || isBlank(output.overall.analysis) || isBlank(output.overall.tip)) {
-            throw new IllegalArgumentException("OpenAI narrative contains an invalid overview");
-        }
+        validateOverview(output.overall);
 
         Map<Long, List<String>> adjectivesByAnswerId = new LinkedHashMap<>();
-        for (AnswerAdjectives answer : output.answerAdjectives) {
-            if (answer == null || answer.submissionAnswerId == null || answer.adjectives == null
-                    || answer.adjectives.isEmpty() || answer.adjectives.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)) {
-                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record");
+        for (int index = 0; index < output.answerAdjectives.size(); index++) {
+            AnswerAdjectives answer = output.answerAdjectives.get(index);
+            if (answer == null) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, reason=record is null".formatted(index));
+            }
+            if (answer.submissionAnswerId == null) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, reason=submissionAnswerId is missing".formatted(index));
+            }
+            if (answer.adjectives == null) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, submissionAnswerId=%s, reason=adjectives is missing".formatted(index, answer.submissionAnswerId));
+            }
+            if (answer.adjectives.isEmpty()) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, submissionAnswerId=%s, reason=adjectives is empty".formatted(index, answer.submissionAnswerId));
+            }
+            if (answer.adjectives.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)) {
+                throw new IllegalArgumentException("OpenAI narrative contains an invalid adjective record: index=%s, submissionAnswerId=%s, reason=adjectives contains blank value".formatted(index, answer.submissionAnswerId));
             }
             if (adjectivesByAnswerId.put(answer.submissionAnswerId, List.copyOf(answer.adjectives)) != null) {
                 throw new IllegalArgumentException("OpenAI narrative contains duplicate answer adjectives");
             }
         }
-        if (!adjectivesByAnswerId.keySet().equals(Set.copyOf(expectedAnswerIds))) {
-            throw new IllegalArgumentException("OpenAI narrative does not cover every answer");
-        }
+        validateAnswerCoverage(adjectivesByAnswerId, expectedAnswerIds);
 
         Map<ResultQuadrantType, ResultNarrative.QuadrantNarrative> quadrants = new EnumMap<>(ResultQuadrantType.class);
         putQuadrant(quadrants, ResultQuadrantType.OPEN, output.quadrants.open);
@@ -81,44 +91,97 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
         putQuadrant(quadrants, ResultQuadrantType.HIDDEN, output.quadrants.hidden);
         putQuadrant(quadrants, ResultQuadrantType.UNKNOWN, output.quadrants.unknown);
         return new ResultNarrative(
-                new ResultNarrative.Overview(output.overall.keyword, output.overall.analysis, output.overall.tip),
+                new ResultNarrative.Overview(
+                        output.overall.keyword,
+                        output.overall.analysisTitle,
+                        output.overall.analysisBody,
+                        output.overall.tip
+                ),
                 Map.copyOf(adjectivesByAnswerId),
                 Map.copyOf(quadrants)
         );
     }
 
     private static void putQuadrant(Map<ResultQuadrantType, ResultNarrative.QuadrantNarrative> quadrants, ResultQuadrantType type, QuadrantNarrative quadrant) {
-        if (quadrant == null || isBlank(quadrant.definitionKeyword) || quadrant.adjectiveKeywords == null || quadrant.adjectiveKeywords.size() != 2
-                || quadrant.adjectiveKeywords.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)
-                || isBlank(quadrant.interpretation) || isBlank(quadrant.imagePrompt)) {
-            throw new IllegalArgumentException("OpenAI narrative contains an invalid " + type + " quadrant");
-        }
+        validateQuadrant(type, quadrant);
         quadrants.put(type, new ResultNarrative.QuadrantNarrative(
                 quadrant.definitionKeyword, List.copyOf(quadrant.adjectiveKeywords), quadrant.interpretation, quadrant.imagePrompt));
     }
 
-    private static String prompt(List<ResultAnswerAdjectiveRecord> answers) {
-        return answers.stream()
-                .map(answer -> """
-                        submissionAnswerId: %d
-                        respondentLabel: %s
-                        submitterType: %s
-                        traitCode: %s
-                        question: %s
-                        answer: %s
-                        """.formatted(
-                        answer.submissionAnswerId(),
-                        answer.respondentLabel(),
-                        answer.submitterType(),
-                        answer.traitCode(),
-                        answer.questionSnapshot(),
-                        answer.answerSnapshot()
-                ))
-                .reduce("Analyze the following completed survey answers:\n", (left, right) -> left + "\n" + right);
+    private static void validateOverview(OverallNarrative overall) {
+        if (isBlank(overall.keyword)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.keyword");
+        }
+        if (isBlank(overall.analysisTitle)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.analysisTitle");
+        }
+        if (isBlank(overall.analysisBody)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.analysisBody");
+        }
+        if (isBlank(overall.tip)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.tip");
+        }
+        if (overall.tip.contains("\r")) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.tip line separator");
+        }
+        String[] tipLines = overall.tip.split("\n", -1);
+        if (tipLines.length != TIP_LINE_COUNT || java.util.Arrays.stream(tipLines).anyMatch(OpenAiResultNarrativeClient::isBlank)) {
+            throw new IllegalArgumentException(
+                    "OpenAI narrative contains an invalid overall.tip lineCount: actualLineCount=%s, expectedLineCount=%s"
+                            .formatted(tipLines.length, TIP_LINE_COUNT)
+            );
+        }
+    }
+
+    private static void validateQuadrant(ResultQuadrantType type, QuadrantNarrative quadrant) {
+        if (quadrant == null) {
+            throw new IllegalArgumentException("OpenAI narrative contains a missing " + type + " quadrant");
+        }
+        if (isBlank(quadrant.definitionKeyword)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.definitionKeyword".formatted(type));
+        }
+        if (quadrant.adjectiveKeywords == null || quadrant.adjectiveKeywords.size() != 2
+                || quadrant.adjectiveKeywords.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.adjectiveKeywords".formatted(type));
+        }
+        if (isBlank(quadrant.interpretation)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.interpretation".formatted(type));
+        }
+        if (isBlank(quadrant.imagePrompt)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.imagePrompt".formatted(type));
+        }
+        if (containsHangul(quadrant.imagePrompt)) {
+            throw new IllegalArgumentException("OpenAI narrative contains a non-English %s.imagePrompt".formatted(type));
+        }
+    }
+
+    private static void validateAnswerCoverage(Map<Long, List<String>> adjectivesByAnswerId, List<Long> expectedAnswerIds) {
+        List<Long> expectedIds = List.copyOf(new LinkedHashSet<>(expectedAnswerIds));
+        List<Long> actualIds = List.copyOf(adjectivesByAnswerId.keySet());
+        Set<Long> expectedIdSet = Set.copyOf(expectedIds);
+        Set<Long> actualIdSet = Set.copyOf(actualIds);
+        List<Long> missingIds = expectedIds.stream()
+                .filter(expectedId -> !actualIdSet.contains(expectedId))
+                .toList();
+        List<Long> unexpectedIds = actualIds.stream()
+                .filter(actualId -> !expectedIdSet.contains(actualId))
+                .toList();
+        if (!missingIds.isEmpty() || !unexpectedIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "OpenAI narrative does not cover every answer: expectedAnswerIds=%s, actualAnswerIds=%s, missingAnswerIds=%s, unexpectedAnswerIds=%s"
+                            .formatted(expectedIds, actualIds, missingIds, unexpectedIds)
+            );
+        }
     }
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static boolean containsHangul(String value) {
+        return value.codePoints().anyMatch(character ->
+                Character.UnicodeScript.of(character) == Character.UnicodeScript.HANGUL
+        );
     }
 
     public static class OpenAiNarrativeOutput {
@@ -129,14 +192,20 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
 
     public static class OverallNarrative {
         public String keyword;
-        public String analysis;
+        public String analysisTitle;
+        public String analysisBody;
         public String tip;
     }
 
+    @JsonPropertyOrder({"OPEN", "BLIND", "HIDDEN", "UNKNOWN"})
     public static class Quadrants {
+        @JsonProperty("OPEN")
         public QuadrantNarrative open;
+        @JsonProperty("BLIND")
         public QuadrantNarrative blind;
+        @JsonProperty("HIDDEN")
         public QuadrantNarrative hidden;
+        @JsonProperty("UNKNOWN")
         public QuadrantNarrative unknown;
     }
 

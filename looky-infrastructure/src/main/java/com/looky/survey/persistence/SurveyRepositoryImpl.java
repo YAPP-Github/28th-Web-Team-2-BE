@@ -51,6 +51,12 @@ public class SurveyRepositoryImpl implements SurveyRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<SurveyRecord> findById(Long surveyId) {
+        return surveyJpaRepository.findById(surveyId).map(this::toRecord);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<SurveyRecord> findBySurveyCode(String surveyCode) {
         return surveyJpaRepository.findBySurveyCode(surveyCode).map(this::toRecord);
     }
@@ -87,6 +93,15 @@ public class SurveyRepositoryImpl implements SurveyRepository {
     public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
         SurveyJpaEntity entity = surveyJpaRepository.findById(surveyId).orElseThrow();
         entity.updateResultStatus(resultStatus);
+    }
+
+    @Override
+    public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+        surveyJpaRepository.syncResultStatusWhenCurrentStatusIn(
+                surveyId,
+                resultStatus,
+                RESULT_GENERATION_CANDIDATE_STATUSES
+        );
     }
 
     private SurveyRecord toRecord(SurveyJpaEntity entity) {

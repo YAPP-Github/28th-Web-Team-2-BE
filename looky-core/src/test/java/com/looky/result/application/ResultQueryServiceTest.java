@@ -49,12 +49,8 @@ class ResultQueryServiceTest {
         resultRepository.save(new ResultRecord(
                 10L,
                 1L,
-                List.of(
-                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, "https://cdn.looky.my/results/b91/open.png"),
-                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, "https://cdn.looky.my/results/b91/blind.png"),
-                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, "https://cdn.looky.my/results/b91/hidden.png"),
-                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, "https://cdn.looky.my/results/b91/unknown.png")
-                )
+                overview(),
+                readyQuadrants()
         ));
 
         SurveyResultResult result = service.getSurveyResult("b91k2p8xq4z2");
@@ -66,16 +62,21 @@ class ResultQueryServiceTest {
         assertEquals("https://cdn.looky.my/results/b91/hidden.png", result.quadrantImageUrls().get("HIDDEN"));
         assertEquals("https://cdn.looky.my/results/b91/unknown.png", result.quadrantImageUrls().get("UNKNOWN"));
         assertEquals(4, result.quadrantImageUrls().size());
+        assertEquals("마음을 잘 여는 사람", result.overall().keyword());
+        assertEquals("대화를 여는 다정한 기운", result.overall().analysisTitle());
+        assertEquals("앞장서다 혼자 짐을 다 안을 때가 있어요.\n한 번만 속도 맞춰볼까요? 하고 먼저 물어보세요.\n주변도 더 편하게 움직이고 관계가 오래 따뜻하게 돌아올 거예요.", result.overall().tip());
+        assertEquals("탐험가", result.quadrants().get("OPEN").definitionKeyword());
+        assertEquals(List.of("탐험 실험 다 좋아 인간", "새로운 거? 무조건 해봐야지"), result.quadrants().get("OPEN").adjectiveKeywords());
     }
 
     @Test
     void getSurveyResultSignsStoredS3ObjectKeysWhenReady() {
         surveyRepository.save(survey(ResultStatus.READY));
-        resultRepository.save(new ResultRecord(10L, 1L, List.of(
-                new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "open", "surveys/code/results/OPEN.png"),
-                new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "blind", "surveys/code/results/BLIND.png"),
-                new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "hidden", "surveys/code/results/HIDDEN.png"),
-                new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "unknown", "surveys/code/results/UNKNOWN.png")
+        resultRepository.save(new ResultRecord(10L, 1L, overview(), List.of(
+                new ResultQuadrantRecord(ResultQuadrantType.OPEN, null, "open", null, "surveys/code/results/OPEN.png", null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "탐험가", List.of("탐험 실험 다 좋아 인간", "새로운 거? 무조건 해봐야지")),
+                new ResultQuadrantRecord(ResultQuadrantType.BLIND, null, "blind", null, "surveys/code/results/BLIND.png", null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "관찰자", List.of("사람 잘 챙기기 1순위", "분위기 메이커")),
+                new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, null, "hidden", null, "surveys/code/results/HIDDEN.png", null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "사색가", List.of("혼자가 편해", "디테일 집착")),
+                new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, null, "unknown", null, "surveys/code/results/UNKNOWN.png", null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "개척자", List.of("한 번 꽂히면 끝장", "새로운 곳 좋아"))
         )));
         ResultQueryService signingService = new ResultQueryService(
                 surveyRepository, resultRepository,
@@ -147,12 +148,17 @@ class ResultQueryServiceTest {
     }
 
     @Test
-    void getSurveyResultFailsWhenQuadrantsAreIncomplete() {
+    void getSurveyResultFailsWhenOverviewIsMissing() {
         surveyRepository.save(survey(ResultStatus.READY));
         resultRepository.save(new ResultRecord(
                 10L,
                 1L,
-                List.of(new ResultQuadrantRecord(ResultQuadrantType.OPEN, "https://cdn.looky.my/results/b91/open.png"))
+                List.of(
+                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, "https://cdn.looky.my/results/b91/open.png"),
+                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, "https://cdn.looky.my/results/b91/blind.png"),
+                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, "https://cdn.looky.my/results/b91/hidden.png"),
+                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, "https://cdn.looky.my/results/b91/unknown.png")
+                )
         ));
 
         LookyException exception = assertThrows(
@@ -161,6 +167,47 @@ class ResultQueryServiceTest {
         );
 
         assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.errorCode());
+    }
+
+    @Test
+    void getSurveyResultFailsWhenQuadrantKeywordsAreInvalid() {
+        surveyRepository.save(survey(ResultStatus.READY));
+        resultRepository.save(new ResultRecord(
+                10L,
+                1L,
+                overview(),
+                List.of(
+                        new ResultQuadrantRecord(ResultQuadrantType.OPEN, "https://cdn.looky.my/results/b91/open.png", "open", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "탐험가", List.of("태그 하나")),
+                        new ResultQuadrantRecord(ResultQuadrantType.BLIND, "https://cdn.looky.my/results/b91/blind.png", "blind", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "관찰자", List.of("사람 잘 챙기기 1순위", "분위기 메이커")),
+                        new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, "https://cdn.looky.my/results/b91/hidden.png", "hidden", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "사색가", List.of("혼자가 편해", "디테일 집착")),
+                        new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, "https://cdn.looky.my/results/b91/unknown.png", "unknown", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "개척자", List.of("한 번 꽂히면 끝장", "새로운 곳 좋아"))
+                )
+        ));
+
+        LookyException exception = assertThrows(
+                LookyException.class,
+                () -> service.getSurveyResult("b91k2p8xq4z2")
+        );
+
+        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.errorCode());
+    }
+
+    private ResultOverviewRecord overview() {
+        return new ResultOverviewRecord(
+                "마음을 잘 여는 사람",
+                "대화를 여는 다정한 기운",
+                "낯선 자리에서도 \"먼저 같이 해볼까요?\" 하고 말을 건넵니다. 주변도 금세 편하게 반응하고 흐름이 부드러워집니다. 끝나고 나면 따뜻한 여운이 오래 남습니다.",
+                "앞장서다 혼자 짐을 다 안을 때가 있어요.\n한 번만 속도 맞춰볼까요? 하고 먼저 물어보세요.\n주변도 더 편하게 움직이고 관계가 오래 따뜻하게 돌아올 거예요."
+        );
+    }
+
+    private List<ResultQuadrantRecord> readyQuadrants() {
+        return List.of(
+                new ResultQuadrantRecord(ResultQuadrantType.OPEN, "https://cdn.looky.my/results/b91/open.png", "서로 알고 있는 강점", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "탐험가", List.of("탐험 실험 다 좋아 인간", "새로운 거? 무조건 해봐야지")),
+                new ResultQuadrantRecord(ResultQuadrantType.BLIND, "https://cdn.looky.my/results/b91/blind.png", "타인이 먼저 발견하는 특성", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "관찰자", List.of("사람 잘 챙기기 1순위", "분위기 메이커")),
+                new ResultQuadrantRecord(ResultQuadrantType.HIDDEN, "https://cdn.looky.my/results/b91/hidden.png", "혼자 알고 있는 내면", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "사색가", List.of("혼자가 편해", "디테일 집착")),
+                new ResultQuadrantRecord(ResultQuadrantType.UNKNOWN, "https://cdn.looky.my/results/b91/unknown.png", "아직 발견되지 않은 가능성", null, null, null, com.looky.result.domain.QuadrantWorkStatus.IMAGE_READY, 0, "개척자", List.of("한 번 꽂히면 끝장", "새로운 곳 좋아"))
+        );
     }
 
     private SurveyRecord survey(ResultStatus resultStatus) {
@@ -200,6 +247,14 @@ class ResultQueryServiceTest {
         }
 
         @Override
+        public Optional<SurveyRecord> findById(Long surveyId) {
+            if (survey != null && survey.id().equals(surveyId)) {
+                return Optional.of(survey);
+            }
+            return Optional.empty();
+        }
+
+        @Override
         public Optional<SurveyRecord> findBySurveyCode(String surveyCode) {
             if (survey != null && survey.surveyCode().equals(surveyCode)) {
                 return Optional.of(survey);
@@ -224,6 +279,11 @@ class ResultQueryServiceTest {
 
         @Override
         public void updateResultStatus(Long surveyId, ResultStatus resultStatus) {
+            throw new UnsupportedOperationException("not used in result query tests");
+        }
+
+        @Override
+        public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
     }

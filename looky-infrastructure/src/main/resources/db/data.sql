@@ -23,10 +23,10 @@ insert into character_packs (id, pack_key, name, created_at, updated_at) values
 (1, 'pomang', 'Pomang', current_timestamp, current_timestamp);
 
 insert into character_pack_versions (id, pack_id, version, base_asset_key, active, created_at, updated_at) values
-(1, 1, 'v1', 'character-packs/pomang/v1/base/base.png', true, current_timestamp, current_timestamp);
+(1, 1, 'v1', 'character-packs/pomang/qa-20260625/base/base.png', true, current_timestamp, current_timestamp);
 
 insert into character_pack_variants (version_id, variant_key, quadrant_type, asset_key, sort_order, created_at, updated_at) values
-(1, 'open-cheer', 'OPEN', 'character-packs/pomang/v1/variants/open-cheer.png', 0, current_timestamp, current_timestamp),
-(1, 'blind-magnifier', 'BLIND', 'character-packs/pomang/v1/variants/blind-magnifier.png', 0, current_timestamp, current_timestamp),
-(1, 'hidden-letter', 'HIDDEN', 'character-packs/pomang/v1/variants/hidden-letter.png', 0, current_timestamp, current_timestamp),
-(1, 'unknown-teary', 'UNKNOWN', 'character-packs/pomang/v1/variants/unknown-teary.png', 0, current_timestamp, current_timestamp);
+(1, 'blind-magnifier', 'BLIND', 'character-packs/pomang/qa-20260625/variants/blind-magnifier.png', 0, current_timestamp, current_timestamp),
+(1, 'hidden-letter', 'HIDDEN', 'character-packs/pomang/qa-20260625/variants/hidden-letter.png', 1, current_timestamp, current_timestamp),
+(1, 'open-stars', 'OPEN', 'character-packs/pomang/qa-20260625/variants/open-stars.png', 2, current_timestamp, current_timestamp),
+(1, 'unknown-clock', 'UNKNOWN', 'character-packs/pomang/qa-20260625/variants/unknown-clock.png', 3, current_timestamp, current_timestamp);

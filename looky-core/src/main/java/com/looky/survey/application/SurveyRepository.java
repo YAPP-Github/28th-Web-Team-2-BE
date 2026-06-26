@@ -19,6 +19,8 @@ public interface SurveyRepository {
             String characterPackVersion
     );
 
+    Optional<SurveyRecord> findById(Long surveyId);
+
     Optional<SurveyRecord> findBySurveyCode(String surveyCode);
 
     List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now);
@@ -31,4 +33,6 @@ public interface SurveyRepository {
     boolean markGenerating(Long surveyId, int maxAttempts);
 
     void updateResultStatus(Long surveyId, ResultStatus resultStatus);
+
+    void syncResultStatus(Long surveyId, ResultStatus resultStatus);
 }
