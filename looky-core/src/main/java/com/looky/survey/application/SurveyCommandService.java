@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
@@ -48,6 +50,9 @@ public class SurveyCommandService implements SurveyService {
     private static final int HANGUL_SYLLABLE_BASE = 0xAC00;
     private static final int HANGUL_SYLLABLE_LAST = 0xD7A3;
     private static final int HANGUL_JONGSEONG_COUNT = 28;
+    private static final Pattern SUBJECT_TOKEN_PATTERN = Pattern.compile(
+            "\\{나(?::([A-Za-z가-힣]+))?\\}(이라면|라면|이랑|랑|으로|로|에게|한테|은|는|이|가|을|를|과|와|의|도)?"
+    );
 
     private final SurveyRepository surveyRepository;
     private final QuestionRepository questionRepository;
@@ -202,29 +207,157 @@ public class SurveyCommandService implements SurveyService {
                 .map(question -> new QuestionRecord(
                         question.questionId(),
                         question.traitCode(),
-                        personalizeQuestionContent(question.content(), targetNickname),
+                        personalizeQuestionContent(question.content(), question.contentTemplate(), targetNickname),
+                        question.contentTemplate(),
                         question.options()
                 ))
                 .toList();
     }
 
-    private String personalizeQuestionContent(String content, String targetNickname) {
+    private String personalizeQuestionContent(String content, String contentTemplate, String targetNickname) {
         if (content == null || targetNickname == null) {
             return content;
         }
         String nickname = targetNickname.trim();
-        if (nickname.isEmpty() || !content.contains("나는?")) {
+        if (nickname.isEmpty()) {
+            return content;
+        }
+
+        if (contentTemplate != null && !contentTemplate.isBlank()) {
+            return renderSubjectTemplate(contentTemplate, nickname);
+        }
+
+        if (!content.contains("나는?")) {
             return content;
         }
         return content.replace("나는?", nickname + topicParticle(nickname) + "?");
     }
 
-    private String topicParticle(String nickname) {
-        char lastCharacter = nickname.charAt(nickname.length() - 1);
-        if (lastCharacter < HANGUL_SYLLABLE_BASE || lastCharacter > HANGUL_SYLLABLE_LAST) {
-            return "는";
+    private String renderSubjectTemplate(String template, String nickname) {
+        Matcher matcher = SUBJECT_TOKEN_PATTERN.matcher(template);
+        StringBuilder rendered = new StringBuilder();
+        while (matcher.find()) {
+            matcher.appendReplacement(
+                    rendered,
+                    Matcher.quoteReplacement(nickname + suffixFor(matcher.group(1), matcher.group(2), nickname))
+            );
         }
-        return ((lastCharacter - HANGUL_SYLLABLE_BASE) % HANGUL_JONGSEONG_COUNT) == 0 ? "는" : "은";
+        matcher.appendTail(rendered);
+        return rendered.toString();
+    }
+
+    private String suffixFor(String type, String followingSuffix, String nickname) {
+        if (type == null || type.isBlank()) {
+            type = followingSuffix;
+        }
+        if (type == null || type.isBlank()) {
+            return "";
+        }
+        return switch (type) {
+            case "은", "는", "은는" -> topicParticle(nickname);
+            case "이", "가", "이가" -> subjectParticle(nickname);
+            case "을", "를", "을를" -> objectParticle(nickname);
+            case "과", "와", "과와" -> withParticle(nickname);
+            case "이라면", "라면" -> conditionalParticle(nickname);
+            case "이랑", "랑" -> companionParticle(nickname);
+            case "으로", "로", "으로로" -> directionParticle(nickname);
+            case "에게" -> dativeParticle(nickname);
+            case "한테" -> colloquialDativeParticle(nickname);
+            case "도" -> additiveParticle(nickname);
+            default -> type;
+        };
+    }
+
+    private String topicParticle(String nickname) {
+        if (needsNicknameSupportParticle(nickname)) {
+            return "이는";
+        }
+        return hasFinalConsonant(nickname) ? "은" : "는";
+    }
+
+    private String subjectParticle(String nickname) {
+        if (needsNicknameSupportParticle(nickname)) {
+            return "이가";
+        }
+        return hasFinalConsonant(nickname) ? "이" : "가";
+    }
+
+    private String objectParticle(String nickname) {
+        if (needsNicknameSupportParticle(nickname)) {
+            return "이를";
+        }
+        return hasFinalConsonant(nickname) ? "을" : "를";
+    }
+
+    private String withParticle(String nickname) {
+        if (needsNicknameSupportParticle(nickname)) {
+            return "이와";
+        }
+        return hasFinalConsonant(nickname) ? "과" : "와";
+    }
+
+    private String conditionalParticle(String nickname) {
+        return hasFinalConsonant(nickname) ? "이라면" : "라면";
+    }
+
+    private String companionParticle(String nickname) {
+        return hasFinalConsonant(nickname) ? "이랑" : "랑";
+    }
+
+    private String directionParticle(String nickname) {
+        if (needsNicknameSupportParticle(nickname)) {
+            return "이로";
+        }
+        return hasFinalConsonant(nickname) && finalConsonantIndex(nickname) != 8 ? "으로" : "로";
+    }
+
+    private String dativeParticle(String nickname) {
+        return needsNicknameSupportParticle(nickname) ? "이에게" : "에게";
+    }
+
+    private String colloquialDativeParticle(String nickname) {
+        return needsNicknameSupportParticle(nickname) ? "이한테" : "한테";
+    }
+
+    private String additiveParticle(String nickname) {
+        return needsNicknameSupportParticle(nickname) ? "이도" : "도";
+    }
+
+    private boolean hasFinalConsonant(String nickname) {
+        return finalConsonantIndex(nickname) != 0;
+    }
+
+    private boolean hasHangulFinalConsonant(String nickname) {
+        int lastCodePoint = nickname.codePointBefore(nickname.length());
+        return lastCodePoint >= HANGUL_SYLLABLE_BASE
+                && lastCodePoint <= HANGUL_SYLLABLE_LAST
+                && finalConsonantIndex(nickname) != 0;
+    }
+
+    private boolean needsNicknameSupportParticle(String nickname) {
+        return hasHangulFinalConsonant(nickname) && hangulSyllableCount(nickname) < 3;
+    }
+
+    private int hangulSyllableCount(String nickname) {
+        return (int) nickname.codePoints()
+                .filter(codePoint -> codePoint >= HANGUL_SYLLABLE_BASE && codePoint <= HANGUL_SYLLABLE_LAST)
+                .count();
+    }
+
+    private int finalConsonantIndex(String nickname) {
+        int lastCodePoint = nickname.codePointBefore(nickname.length());
+        if (lastCodePoint >= HANGUL_SYLLABLE_BASE && lastCodePoint <= HANGUL_SYLLABLE_LAST) {
+            return (lastCodePoint - HANGUL_SYLLABLE_BASE) % HANGUL_JONGSEONG_COUNT;
+        }
+        return switch (lastCodePoint) {
+            case '0' -> 21; // 영
+            case '1' -> 8;  // 일
+            case '3' -> 16; // 삼
+            case '6' -> 1;  // 육
+            case '7' -> 8;  // 칠
+            case '8' -> 8;  // 팔
+            default -> 0;
+        };
     }
 
     private SurveyRecord saveNewSurveyWithRetry(String userNickname, OffsetDateTime now) {

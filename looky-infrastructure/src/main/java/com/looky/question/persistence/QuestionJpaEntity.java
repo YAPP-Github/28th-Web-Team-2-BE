@@ -26,6 +26,12 @@ public class QuestionJpaEntity {
     @Column(name = "content_peer", nullable = false, columnDefinition = "text")
     private String contentPeer;
 
+    @Column(name = "content_self_template", columnDefinition = "text")
+    private String contentSelfTemplate;
+
+    @Column(name = "content_peer_template", columnDefinition = "text")
+    private String contentPeerTemplate;
+
     @Column(name = "question_type", nullable = false, length = 40)
     private String questionType;
 
@@ -55,6 +61,14 @@ public class QuestionJpaEntity {
 
     public String getContentPeer() {
         return contentPeer;
+    }
+
+    public String getContentSelfTemplate() {
+        return contentSelfTemplate;
+    }
+
+    public String getContentPeerTemplate() {
+        return contentPeerTemplate;
     }
 
     public TraitCode getTraitCode() {
