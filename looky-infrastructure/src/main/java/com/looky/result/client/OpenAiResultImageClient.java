@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.looky.result.application.ResultImageClient;
 import com.looky.result.application.ResultImageRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -41,6 +42,7 @@ public class OpenAiResultImageClient implements ResultImageClient {
     private final HttpClient httpClient;
     private final URI openAiBaseUrl;
 
+    @Autowired
     public OpenAiResultImageClient(
             S3Client s3Client,
             @Value("${looky.result-generation.s3.bucket}") String bucket,
