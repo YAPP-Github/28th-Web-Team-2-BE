@@ -39,6 +39,7 @@ out/
 .codex/
 .gstack/
 AGENTS.md
+/.worktrees/
 
 /.playwright-cli/console-2026-06-23T06-25-48-197Z.log
 /.playwright-cli/page-2026-06-23T06-25-48-883Z.yml
@@ -106,3 +107,4 @@ AGENTS.md
 
 /.gradle-local/
 /backend-dev.tar
+docs/superpowers/.DS_Store
