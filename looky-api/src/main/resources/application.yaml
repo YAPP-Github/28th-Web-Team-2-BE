@@ -29,7 +29,7 @@ looky:
     fixed-delay: 60000
     max-attempts: 3
     narrative-model: gpt-5.4-mini
-    image-model: gpt-image-2
+    image-model: gpt-image-1.5
     image-quality: low
     presigned-url-ttl: 24h
 

@@ -10,7 +10,10 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest(classes = LookyApiApplication.class)
+@SpringBootTest(classes = LookyApiApplication.class, properties = {
+        "spring.flyway.enabled=false",
+        "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 @ActiveProfiles("local")
 class ResultGenerationPropertiesTest {
 
@@ -35,7 +38,7 @@ class ResultGenerationPropertiesTest {
     @Test
     void resultGenerationUsesConfiguredModelsQualityAndSignedUrlTtl() {
         assertEquals("gpt-5.4-mini", narrativeModel);
-        assertEquals("gpt-image-2", imageModel);
+        assertEquals("gpt-image-1.5", imageModel);
         assertEquals("low", imageQuality);
         assertEquals(Duration.ofHours(24), presignedUrlTtl);
         assertEquals("app-contents-dev", bucket);
