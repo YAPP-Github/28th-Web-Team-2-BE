@@ -149,8 +149,12 @@ class ResultGenerationServiceTest {
                         Use the references only to preserve the hamster's core identity, proportions, color palette, and illustration style.
                         Do not copy the exact pose, scene, composition, background, props, or facial expression from any reference image.
                         Create a fresh illustration with a distinct scene, camera angle, pose, expression, and mood for this Johari Window quadrant.
-                        Additional scene guidance:
-                        OPEN image prompt
+                        얼굴 이목구비 눈코입, 체형, 색상, 스타일은 모두 유지해줘.
+                        하얀색 무광의 귀여운 햄스터 3D 랜더링 이미지, 검정색 눈과 입만 살짝 유광, 얼굴의 이목구비 눈코입, 체형, 색상, 스타일 모두 유지.
+                        이번 이미지는 OPEN image prompt을 표현해줘.
+                        캐릭터의 표정, 포즈, 소품은 해당 상황이 한눈에 드러나게 바꾸되, 배경은 캐릭터를 돋보이게 하는 저밀도 배경으로 구성해줘.
+                        복잡한 오브젝트는 최소화하고, 큰 면 위주의 단순한 배경, 부드러운 파스텔 컬러, 여백이 많은 구성을 사용해줘.
+                        캐릭터는 화면 중앙에 크게 배치하고, 배경 요소는 보조적으로만 넣어줘.
                         """,
                 resultImageClient.generatedRequests.getFirst().imagePrompt()
         );
