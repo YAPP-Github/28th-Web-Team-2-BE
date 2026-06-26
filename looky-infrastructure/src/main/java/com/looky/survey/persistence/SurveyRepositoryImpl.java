@@ -51,6 +51,12 @@ public class SurveyRepositoryImpl implements SurveyRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<SurveyRecord> findById(Long surveyId) {
+        return surveyJpaRepository.findById(surveyId).map(this::toRecord);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<SurveyRecord> findBySurveyCode(String surveyCode) {
         return surveyJpaRepository.findBySurveyCode(surveyCode).map(this::toRecord);
     }

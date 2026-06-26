@@ -335,6 +335,11 @@ class SurveyCommandServiceTest {
         }
 
         @Override
+        public Optional<SurveyRecord> findById(Long surveyId) {
+            return Optional.ofNullable(surveys.get(surveyId));
+        }
+
+        @Override
         public Optional<SurveyRecord> findBySurveyCode(String surveyCode) {
             return surveys.values().stream()
                     .filter(survey -> survey.surveyCode().equals(surveyCode))
@@ -388,6 +393,14 @@ class SurveyCommandServiceTest {
                 String packKey,
                 String packVersion,
                 com.looky.result.domain.ResultQuadrantType quadrantType
+        ) {
+            throw new UnsupportedOperationException("not used in survey command tests");
+        }
+
+        @Override
+        public java.util.List<com.looky.characterpack.application.CharacterPackVariantRecord> findReferenceVariants(
+                String packKey,
+                String packVersion
         ) {
             throw new UnsupportedOperationException("not used in survey command tests");
         }

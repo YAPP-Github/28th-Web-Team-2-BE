@@ -118,13 +118,16 @@ class ResultGenerationServiceTest {
         assertEquals(1, generatedCount);
         assertEquals(
                 List.of(
-                        "character-packs/pomang/v1/base/base.png",
-                        "character-packs/pomang/v1/variants/open-cheer.png"
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/blind-magnifier.png",
+                        "character-packs/pomang/qa-20260625/variants/hidden-letter.png",
+                        "character-packs/pomang/qa-20260625/variants/open-stars.png",
+                        "character-packs/pomang/qa-20260625/variants/unknown-clock.png"
                 ),
                 resultImageClient.generatedRequests.getFirst().referenceAssetKeys()
         );
         assertEquals(
-                "open-cheer",
+                "open-stars",
                 selectedVariantKey(resultRepository.resultsBySurveyId.get(survey.id()), ResultQuadrantType.OPEN)
         );
     }
@@ -141,13 +144,39 @@ class ResultGenerationServiceTest {
 
         assertEquals(
                 """
-                        Image 1: base character reference. Preserve the core character identity, silhouette, and illustration style from this image.
-                        Image 2: OPEN quadrant variant reference. Use the pose, facial expression, props, and mood cues from this image.
-                        Create one final illustration that keeps the same character from Image 1 while reflecting the OPEN quadrant cues from Image 2.
+                        Use every attached image only as a reference for the same character and illustration style.
+                        Do not assign separate roles, priority, or hierarchy to the reference images.
+                        Blend the shared character identity, props, mood, and visual cues across all references into one final illustration.
                         Additional scene guidance:
                         OPEN image prompt
                         """,
                 resultImageClient.generatedRequests.getFirst().imagePrompt()
+        );
+    }
+
+    @Test
+    void generateReadyResultsFailsWhenReferenceVariantsDoNotCoverEveryQuadrant() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1), "pomang", "v1");
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+        resultRepository.resultsBySurveyId.put(survey.id(), narrativeReadyResult(survey.id()));
+        characterPackRepository.referenceVariants = characterPackRepository.referenceVariants.stream()
+                .filter(variant -> variant.quadrantType() != ResultQuadrantType.UNKNOWN)
+                .toList();
+
+        int generatedCount = imageService.generateReadyResults();
+
+        assertEquals(0, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING), surveyRepository.statusUpdates.get(survey.id()));
+        assertTrue(resultImageClient.generatedRequests.isEmpty());
+        assertEquals(
+                QuadrantWorkStatus.NARRATIVE_READY,
+                resultRepository.resultsBySurveyId.get(survey.id()).quadrants().stream()
+                        .filter(quadrant -> quadrant.quadrantType() == ResultQuadrantType.OPEN)
+                        .findFirst()
+                        .orElseThrow()
+                        .workStatus()
         );
     }
 
@@ -633,6 +662,33 @@ class ResultGenerationServiceTest {
     }
 
     private static final class FakeCharacterPackRepository implements CharacterPackRepository {
+        private List<CharacterPackVariantRecord> referenceVariants = List.of(
+                new CharacterPackVariantRecord(
+                        "blind-magnifier",
+                        ResultQuadrantType.BLIND,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/blind-magnifier.png"
+                ),
+                new CharacterPackVariantRecord(
+                        "hidden-letter",
+                        ResultQuadrantType.HIDDEN,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/hidden-letter.png"
+                ),
+                new CharacterPackVariantRecord(
+                        "open-stars",
+                        ResultQuadrantType.OPEN,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/open-stars.png"
+                ),
+                new CharacterPackVariantRecord(
+                        "unknown-clock",
+                        ResultQuadrantType.UNKNOWN,
+                        "character-packs/pomang/qa-20260625/base/base.png",
+                        "character-packs/pomang/qa-20260625/variants/unknown-clock.png"
+                )
+        );
+
         @Override
         public Optional<com.looky.characterpack.application.CharacterPackSnapshot> findActiveSnapshot() {
             throw new UnsupportedOperationException("not used in result generation tests");
@@ -640,20 +696,14 @@ class ResultGenerationServiceTest {
 
         @Override
         public Optional<CharacterPackVariantRecord> findPrimaryVariant(String packKey, String packVersion, ResultQuadrantType quadrantType) {
-            return Optional.of(new CharacterPackVariantRecord(
-                    quadrantType == ResultQuadrantType.OPEN ? "open-cheer" :
-                            quadrantType == ResultQuadrantType.BLIND ? "blind-magnifier" :
-                                    quadrantType == ResultQuadrantType.HIDDEN ? "hidden-letter" : "unknown-teary",
-                    quadrantType,
-                    "character-packs/%s/%s/base/base.png".formatted(packKey, packVersion),
-                    "character-packs/%s/%s/variants/%s.png".formatted(
-                            packKey,
-                            packVersion,
-                            quadrantType == ResultQuadrantType.OPEN ? "open-cheer" :
-                                    quadrantType == ResultQuadrantType.BLIND ? "blind-magnifier" :
-                                            quadrantType == ResultQuadrantType.HIDDEN ? "hidden-letter" : "unknown-teary"
-                    )
-            ));
+            return referenceVariants.stream()
+                    .filter(variant -> variant.quadrantType() == quadrantType)
+                    .findFirst();
+        }
+
+        @Override
+        public List<CharacterPackVariantRecord> findReferenceVariants(String packKey, String packVersion) {
+            return referenceVariants;
         }
     }
 

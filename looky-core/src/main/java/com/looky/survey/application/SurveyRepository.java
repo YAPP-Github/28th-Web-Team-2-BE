@@ -19,6 +19,8 @@ public interface SurveyRepository {
             String characterPackVersion
     );
 
+    Optional<SurveyRecord> findById(Long surveyId);
+
     Optional<SurveyRecord> findBySurveyCode(String surveyCode);
 
     List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now);

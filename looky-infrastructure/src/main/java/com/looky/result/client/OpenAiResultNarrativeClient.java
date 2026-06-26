@@ -24,6 +24,14 @@ import java.util.Set;
 @Profile("!test & !local")
 public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
 
+    private static final int ANALYSIS_TITLE_MIN_LENGTH = 15;
+    private static final int ANALYSIS_TITLE_MAX_LENGTH = 22;
+    private static final int ANALYSIS_BODY_MIN_LENGTH = 90;
+    private static final int ANALYSIS_BODY_MAX_LENGTH = 105;
+    private static final int TIP_LINE_COUNT = 3;
+    private static final int MIN_ANALYSIS_BODY_SENTENCE_COUNT = 2;
+    private static final int MAX_ANALYSIS_BODY_SENTENCE_COUNT = 3;
+
     private final String narrativeModel;
 
     public OpenAiResultNarrativeClient(@Value("${looky.result-generation.narrative-model}") String narrativeModel) {
@@ -57,12 +65,7 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
         if (output == null || output.overall == null || output.answerAdjectives == null || output.quadrants == null) {
             throw new IllegalArgumentException("OpenAI narrative response is incomplete");
         }
-        if (isBlank(output.overall.keyword)
-                || isBlank(output.overall.analysisTitle)
-                || isBlank(output.overall.analysisBody)
-                || isBlank(output.overall.tip)) {
-            throw new IllegalArgumentException("OpenAI narrative contains an invalid overview");
-        }
+        validateOverview(output.overall);
 
         Map<Long, List<String>> adjectivesByAnswerId = new LinkedHashMap<>();
         for (AnswerAdjectives answer : output.answerAdjectives) {
@@ -94,13 +97,79 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
     }
 
     private static void putQuadrant(Map<ResultQuadrantType, ResultNarrative.QuadrantNarrative> quadrants, ResultQuadrantType type, QuadrantNarrative quadrant) {
-        if (quadrant == null || isBlank(quadrant.definitionKeyword) || quadrant.adjectiveKeywords == null || quadrant.adjectiveKeywords.size() != 2
-                || quadrant.adjectiveKeywords.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)
-                || isBlank(quadrant.interpretation) || isBlank(quadrant.imagePrompt)) {
-            throw new IllegalArgumentException("OpenAI narrative contains an invalid " + type + " quadrant");
-        }
+        validateQuadrant(type, quadrant);
         quadrants.put(type, new ResultNarrative.QuadrantNarrative(
                 quadrant.definitionKeyword, List.copyOf(quadrant.adjectiveKeywords), quadrant.interpretation, quadrant.imagePrompt));
+    }
+
+    private static void validateOverview(OverallNarrative overall) {
+        if (isBlank(overall.keyword)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.keyword");
+        }
+        if (isBlank(overall.analysisTitle)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.analysisTitle");
+        }
+        if (!isLengthBetween(overall.analysisTitle, ANALYSIS_TITLE_MIN_LENGTH, ANALYSIS_TITLE_MAX_LENGTH)) {
+            throw new IllegalArgumentException(
+                    "OpenAI narrative contains an invalid overall.analysisTitle length: actualLength=%s, expectedRange=%s..%s"
+                            .formatted(overall.analysisTitle.length(), ANALYSIS_TITLE_MIN_LENGTH, ANALYSIS_TITLE_MAX_LENGTH)
+            );
+        }
+        if (isBlank(overall.analysisBody)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.analysisBody");
+        }
+        if (!isLengthBetween(overall.analysisBody, ANALYSIS_BODY_MIN_LENGTH, ANALYSIS_BODY_MAX_LENGTH)) {
+            throw new IllegalArgumentException(
+                    "OpenAI narrative contains an invalid overall.analysisBody length: actualLength=%s, expectedRange=%s..%s"
+                            .formatted(overall.analysisBody.length(), ANALYSIS_BODY_MIN_LENGTH, ANALYSIS_BODY_MAX_LENGTH)
+            );
+        }
+        int sentenceCount = countAnalysisBodySentences(overall.analysisBody);
+        if (sentenceCount < MIN_ANALYSIS_BODY_SENTENCE_COUNT || sentenceCount > MAX_ANALYSIS_BODY_SENTENCE_COUNT) {
+            throw new IllegalArgumentException(
+                    "OpenAI narrative contains an invalid overall.analysisBody sentenceCount: actualSentenceCount=%s, expectedRange=%s..%s"
+                            .formatted(sentenceCount, MIN_ANALYSIS_BODY_SENTENCE_COUNT, MAX_ANALYSIS_BODY_SENTENCE_COUNT)
+            );
+        }
+        if (isBlank(overall.tip)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.tip");
+        }
+        if (overall.tip.contains("\r")) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.tip line separator");
+        }
+        String[] tipLines = overall.tip.split("\n", -1);
+        if (tipLines.length != TIP_LINE_COUNT || java.util.Arrays.stream(tipLines).anyMatch(OpenAiResultNarrativeClient::isBlank)) {
+            throw new IllegalArgumentException(
+                    "OpenAI narrative contains an invalid overall.tip lineCount: actualLineCount=%s, expectedLineCount=%s"
+                            .formatted(tipLines.length, TIP_LINE_COUNT)
+            );
+        }
+        String lastLine = tipLines[tipLines.length - 1].trim();
+        if (!lastLine.endsWith("할 거예요") && !lastLine.endsWith("돌아올 거예요")) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid overall.tip ending");
+        }
+    }
+
+    private static void validateQuadrant(ResultQuadrantType type, QuadrantNarrative quadrant) {
+        if (quadrant == null) {
+            throw new IllegalArgumentException("OpenAI narrative contains a missing " + type + " quadrant");
+        }
+        if (isBlank(quadrant.definitionKeyword)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.definitionKeyword".formatted(type));
+        }
+        if (quadrant.adjectiveKeywords == null || quadrant.adjectiveKeywords.size() != 2
+                || quadrant.adjectiveKeywords.stream().anyMatch(OpenAiResultNarrativeClient::isBlank)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.adjectiveKeywords".formatted(type));
+        }
+        if (isBlank(quadrant.interpretation)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.interpretation".formatted(type));
+        }
+        if (isBlank(quadrant.imagePrompt)) {
+            throw new IllegalArgumentException("OpenAI narrative contains an invalid %s.imagePrompt".formatted(type));
+        }
+        if (containsHangul(quadrant.imagePrompt)) {
+            throw new IllegalArgumentException("OpenAI narrative contains a non-English %s.imagePrompt".formatted(type));
+        }
     }
 
     private static void validateAnswerCoverage(Map<Long, List<String>> adjectivesByAnswerId, List<Long> expectedAnswerIds) {
@@ -124,6 +193,20 @@ public class OpenAiResultNarrativeClient implements ResultNarrativeClient {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static boolean isLengthBetween(String value, int minLength, int maxLength) {
+        return value.length() >= minLength && value.length() <= maxLength;
+    }
+
+    private static int countAnalysisBodySentences(String analysisBody) {
+        return (int) analysisBody.chars().filter(character -> character == '.').count();
+    }
+
+    private static boolean containsHangul(String value) {
+        return value.codePoints().anyMatch(character ->
+                Character.UnicodeScript.of(character) == Character.UnicodeScript.HANGUL
+        );
     }
 
     public static class OpenAiNarrativeOutput {

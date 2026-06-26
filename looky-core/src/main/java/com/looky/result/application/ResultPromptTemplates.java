@@ -11,7 +11,9 @@ public final class ResultPromptTemplates {
             - 출력은 JSON only.
             - 출력 최상위 키 순서는 반드시 `overall`, `answerAdjectives`, `quadrants`다.
             - `answerAdjectives`는 입력의 모든 `submissionAnswerId`를 정확히 1번씩 포함해야 한다.
+            - `expectedSubmissionAnswerIds`의 개수와 `answerAdjectives`의 개수는 반드시 같아야 한다.
             - 누락, 중복, 병합, 재번호부여, 신규 ID 생성 금지.
+            - `submissionAnswerId`가 같아 보이거나 답변이 비슷해도 절대 합치지 말고, 입력 순서대로 각 행을 그대로 분리해 출력한다.
             - 이름, 원문 답변, 민감 정보는 어떤 필드에도 쓰지 않는다.
             - 해석은 입력 답변에서만 근거를 뽑고, 과장된 진단이나 낙인 표현은 피한다.
 
@@ -125,6 +127,9 @@ public final class ResultPromptTemplates {
                 %s
 
                 completed survey answers:
+                - 각 입력 행은 서로 독립이다.
+                - `submissionAnswerId`가 다른 행은 답변 내용이 비슷해도 절대 합치지 않는다.
+                - `answerAdjectives`는 `expectedSubmissionAnswerIds`와 같은 개수, 같은 순서로 1:1 대응해야 한다.
                 %s
                 """.formatted(
                 answers.stream().map(ResultAnswerAdjectiveRecord::submissionAnswerId).toList(),

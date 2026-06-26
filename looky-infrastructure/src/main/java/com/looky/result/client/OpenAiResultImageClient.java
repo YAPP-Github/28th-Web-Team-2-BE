@@ -72,4 +72,9 @@ public class OpenAiResultImageClient implements ResultImageClient {
             }
         }
     }
+
+    @Override
+    public String modelName() {
+        return imageModel;
+    }
 }

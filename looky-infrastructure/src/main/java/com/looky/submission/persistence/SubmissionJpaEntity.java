@@ -86,6 +86,10 @@ public class SubmissionJpaEntity {
         return submitterType;
     }
 
+    public String getSubmitterKey() {
+        return submitterKey;
+    }
+
     public SubmissionStatus getSubmissionStatus() {
         return submissionStatus;
     }
