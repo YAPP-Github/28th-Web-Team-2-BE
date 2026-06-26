@@ -107,6 +107,15 @@ class SurveyResultFlowIntegrationTest {
     }
 
     @Test
+    void surveyStatusKeepsResultAvailableAtAfterPersistenceRoundTrip() {
+        SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
+
+        var status = surveyService.getSurveyStatus(survey.surveyCode());
+
+        assertEquals(survey.resultAvailableAt(), status.resultAvailableAt());
+    }
+
+    @Test
     void surveyFlowAcceptsAdditionalPeerResponsesAfterRequiredCountIsReached() {
         SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
 
@@ -145,10 +154,10 @@ class SurveyResultFlowIntegrationTest {
         assertEquals(32, answers.stream().map(answer -> answer.submissionAnswerId()).distinct().count());
         assertEquals(8, answers.stream().filter(answer -> answer.submitterType() == SubmitterType.SELF).count());
         assertEquals(24, answers.stream().filter(answer -> answer.submitterType() == SubmitterType.PEER).count());
-        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("SELF")).count());
-        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("PEER_1")).count());
-        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("PEER_2")).count());
-        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("PEER_3")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("본인")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("친구 1")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("친구 2")).count());
+        assertEquals(8, answers.stream().filter(answer -> answer.respondentLabel().equals("친구 3")).count());
         assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.OPENNESS).count());
         assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.CONSCIENTIOUSNESS).count());
         assertEquals(8, answers.stream().filter(answer -> answer.traitCode() == TraitCode.EXTRAVERSION).count());

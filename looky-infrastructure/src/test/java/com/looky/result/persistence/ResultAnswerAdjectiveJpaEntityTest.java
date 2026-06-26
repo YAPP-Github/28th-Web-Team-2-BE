@@ -21,7 +21,7 @@ class ResultAnswerAdjectiveJpaEntityTest {
                 1L,
                 10L,
                 SubmitterType.SELF,
-                "SELF",
+                "본인",
                 TraitCode.OPENNESS,
                 "내가 좋아하는 표현은?",
                 "따옴표와 역슬래시를 포함한 답변",

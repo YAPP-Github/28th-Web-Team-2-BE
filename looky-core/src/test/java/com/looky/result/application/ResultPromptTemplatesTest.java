@@ -18,7 +18,7 @@ class ResultPromptTemplatesTest {
                         101L,
                         11L,
                         SubmitterType.SELF,
-                        "SELF",
+                        "본인",
                         TraitCode.OPENNESS,
                         "질문",
                         "답변",
@@ -41,5 +41,6 @@ class ResultPromptTemplatesTest {
         assertTrue(input.contains("같은 개수, 같은 순서로 1:1 대응"));
         assertTrue(input.contains("101"));
         assertTrue(input.contains("submissionAnswerId: 101"));
+        assertTrue(input.contains("respondentLabel: 본인"));
     }
 }

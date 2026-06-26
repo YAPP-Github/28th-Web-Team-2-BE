@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +16,7 @@ public interface SurveyJpaRepository extends JpaRepository<SurveyJpaEntity, Long
 
     List<SurveyJpaEntity> findByResultStatusInAndResultAvailableAtLessThanEqual(
             Collection<ResultStatus> resultStatuses,
-            OffsetDateTime now
+            LocalDateTime now
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

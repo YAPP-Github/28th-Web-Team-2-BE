@@ -40,8 +40,6 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class SurveyCommandService implements SurveyService {
 
-    private static final int QUESTION_COUNT_PER_TRAIT = 2;
-    private static final int REQUIRED_PEER_SUBMISSION_COUNT = 3;
     private static final int CODE_LENGTH = 6;
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
     private static final char[] CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
@@ -92,7 +90,7 @@ public class SurveyCommandService implements SurveyService {
         SurveyRecord survey = surveyRepository.findBySurveyCode(surveyCode)
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
         if (!submissionRepository.existsSelfSubmission(survey.id())) {
-            List<QuestionRecord> questions = personalizeQuestions(survey.userNickname(), pickQuestions(SubmitterType.SELF));
+            List<QuestionRecord> questions = personalizeQuestions(SubmitterType.SELF, survey.userNickname(), pickQuestions(SubmitterType.SELF));
             SubmissionStartedResult result = submissionRepository.saveStartedSubmission(
                     survey.id(),
                     survey.userNickname(),
@@ -116,7 +114,7 @@ public class SurveyCommandService implements SurveyService {
             throw new LookyException(ErrorCode.SURVEY_NOT_COLLECTING);
         }
 
-        List<QuestionRecord> questions = personalizeQuestions(survey.userNickname(), pickQuestions(SubmitterType.PEER));
+        List<QuestionRecord> questions = personalizeQuestions(SubmitterType.PEER, survey.userNickname(), pickQuestions(SubmitterType.PEER));
         SubmissionStartedResult result = savePeerSubmissionWithRetry(survey, questions);
         log.info(
                 "submission.started surveyId={} surveyCode={} submissionId={} submitterType={} targetNickname={} questionCount={}",
@@ -187,36 +185,51 @@ public class SurveyCommandService implements SurveyService {
     }
 
     private List<QuestionRecord> pickQuestions(SubmitterType submitterType) {
-        List<QuestionRecord> questions = questionRepository.findRandomActiveQuestionsByTrait(QUESTION_COUNT_PER_TRAIT, submitterType);
-        if (questions.size() != TraitCode.values().length * QUESTION_COUNT_PER_TRAIT
+        int questionCountPerTrait = surveyPolicy.questionCountPerTrait();
+        List<QuestionRecord> questions = questionRepository.findRandomActiveQuestionsByTrait(questionCountPerTrait, submitterType);
+        if (questions.size() != TraitCode.values().length * questionCountPerTrait
                 || Arrays.stream(TraitCode.values()).anyMatch(traitCode -> questions.stream()
                 .filter(question -> question.traitCode() == traitCode)
-                .count() != QUESTION_COUNT_PER_TRAIT)) {
+                .count() != questionCountPerTrait)) {
             throw new LookyException(ErrorCode.NOT_ENOUGH_ACTIVE_QUESTIONS);
         }
         return questions;
     }
 
-    private List<QuestionRecord> personalizeQuestions(String targetNickname, List<QuestionRecord> questions) {
+    private List<QuestionRecord> personalizeQuestions(SubmitterType submitterType, String targetNickname, List<QuestionRecord> questions) {
+        String targetLabel = resolveTargetLabel(submitterType, targetNickname);
         return questions.stream()
                 .map(question -> new QuestionRecord(
                         question.questionId(),
                         question.traitCode(),
-                        personalizeQuestionContent(question.content(), targetNickname),
+                        personalizeQuestionContent(question.content(), targetLabel),
                         question.options()
                 ))
                 .toList();
     }
 
-    private String personalizeQuestionContent(String content, String targetNickname) {
-        if (content == null || targetNickname == null) {
+    private String personalizeQuestionContent(String content, String targetLabel) {
+        if (content == null || targetLabel == null || targetLabel.isBlank()) {
             return content;
         }
-        String nickname = targetNickname.trim();
-        if (nickname.isEmpty() || !content.contains("나는?")) {
-            return content;
-        }
-        return content.replace("나는?", nickname + topicParticle(nickname) + "?");
+        String personalized = content;
+        personalized = replacePhrase(personalized, "이 사람한테", targetLabel + "한테");
+        personalized = replacePhrase(personalized, "이 사람께", targetLabel + "께");
+        personalized = replacePhrase(personalized, "이 사람이", targetLabel + subjectParticle(targetLabel));
+        personalized = replacePhrase(personalized, "이 사람은", targetLabel + topicParticle(targetLabel));
+        personalized = replacePhrase(personalized, "이 사람을", targetLabel + objectParticle(targetLabel));
+        personalized = replacePhrase(personalized, "이 사람의", targetLabel + "의");
+        personalized = replacePhrase(personalized, "이 사람 ", targetLabel + "의 ");
+        personalized = replacePhrase(personalized, "이 사람?", targetLabel + "?");
+        personalized = replacePhrase(personalized, "내가", targetLabel + subjectParticle(targetLabel));
+        personalized = replacePhrase(personalized, "나한테", targetLabel + "한테");
+        personalized = replacePhrase(personalized, "나를", targetLabel + objectParticle(targetLabel));
+        personalized = replacePhrase(personalized, "나의", targetLabel + "의");
+        personalized = replaceStandalonePhrase(personalized, "나는?", targetLabel + topicParticle(targetLabel) + "?");
+        personalized = replaceStandalonePhrase(personalized, "나는 ", targetLabel + topicParticle(targetLabel) + " ");
+        personalized = replaceStandalonePhrase(personalized, "내 ", targetLabel + "의 ");
+        personalized = replaceStandalonePhrase(personalized, "내?", targetLabel + "의?");
+        return personalized;
     }
 
     private String topicParticle(String nickname) {
@@ -225,6 +238,44 @@ public class SurveyCommandService implements SurveyService {
             return "는";
         }
         return ((lastCharacter - HANGUL_SYLLABLE_BASE) % HANGUL_JONGSEONG_COUNT) == 0 ? "는" : "은";
+    }
+
+    private String subjectParticle(String nickname) {
+        char lastCharacter = nickname.charAt(nickname.length() - 1);
+        if (lastCharacter < HANGUL_SYLLABLE_BASE || lastCharacter > HANGUL_SYLLABLE_LAST) {
+            return "가";
+        }
+        return ((lastCharacter - HANGUL_SYLLABLE_BASE) % HANGUL_JONGSEONG_COUNT) == 0 ? "가" : "이";
+    }
+
+    private String objectParticle(String nickname) {
+        char lastCharacter = nickname.charAt(nickname.length() - 1);
+        if (lastCharacter < HANGUL_SYLLABLE_BASE || lastCharacter > HANGUL_SYLLABLE_LAST) {
+            return "를";
+        }
+        return ((lastCharacter - HANGUL_SYLLABLE_BASE) % HANGUL_JONGSEONG_COUNT) == 0 ? "를" : "을";
+    }
+
+    private String resolveTargetLabel(SubmitterType submitterType, String targetNickname) {
+        if (targetNickname != null) {
+            String nickname = targetNickname.trim();
+            if (!nickname.isEmpty()) {
+                return nickname;
+            }
+        }
+        return submitterType == SubmitterType.SELF ? "당신" : "그 사람";
+    }
+
+    private String replacePhrase(String content, String source, String replacement) {
+        return content.contains(source) ? content.replace(source, replacement) : content;
+    }
+
+    private String replaceStandalonePhrase(String content, String source, String replacement) {
+        String personalized = content;
+        if (personalized.startsWith(source)) {
+            personalized = replacement + personalized.substring(source.length());
+        }
+        return personalized.replace(" " + source, " " + replacement);
     }
 
     private SurveyRecord saveNewSurveyWithRetry(String userNickname, OffsetDateTime now) {
@@ -236,7 +287,7 @@ public class SurveyCommandService implements SurveyService {
                 return surveyRepository.saveNewSurvey(
                         userNickname,
                         generateCode(),
-                        REQUIRED_PEER_SUBMISSION_COUNT,
+                        surveyPolicy.requiredPeerSubmissionCount(),
                         now,
                         resultAvailableAt,
                         snapshot.packKey(),

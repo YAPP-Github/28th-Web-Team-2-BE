@@ -121,4 +121,3 @@ docs/superpowers/.DS_Store
 /looky-api/src/test/java/com/looky/api/debug/**
 /looky-api/src/test/java/com/looky/api/support/spring/LocalDemoProfileIntegrationTest.java
 /looky-core/src/main/java/com/looky/result/application/ResultPromptPreview*.java
-

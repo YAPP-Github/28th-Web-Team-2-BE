@@ -11,7 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest(
         classes = SurveyPolicyConfig.class,
-        properties = "looky.survey.result-open-delay=20m"
+        properties = {
+                "looky.survey.result-open-delay=20m",
+                "looky.survey.required-peer-submission-count=4",
+                "looky.survey.question-count-per-trait=3"
+        }
 )
 class SurveyPolicyConfigTest {
 
@@ -21,5 +25,7 @@ class SurveyPolicyConfigTest {
     @Test
     void surveyPolicyUsesDurationStyleDelayProperty() {
         assertEquals(Duration.ofMinutes(20), surveyPolicy.resultOpenDelay());
+        assertEquals(4, surveyPolicy.requiredPeerSubmissionCount());
+        assertEquals(3, surveyPolicy.questionCountPerTrait());
     }
 }

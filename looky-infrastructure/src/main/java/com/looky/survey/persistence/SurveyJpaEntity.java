@@ -14,13 +14,19 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "surveys", uniqueConstraints = {
         @UniqueConstraint(name = "uk_surveys_survey_code", columnNames = "survey_code")
 })
 public class SurveyJpaEntity {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final ZoneOffset KST_OFFSET = ZoneOffset.ofHours(9);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,7 +53,7 @@ public class SurveyJpaEntity {
     private int requiredPeerSubmissionCount;
 
     @Column(name = "result_available_at", nullable = false)
-    private OffsetDateTime resultAvailableAt;
+    private LocalDateTime resultAvailableAt;
 
     @Column(name = "character_pack_key", length = 80)
     private String characterPackKey;
@@ -56,16 +62,16 @@ public class SurveyJpaEntity {
     private String characterPackVersion;
 
     @Column(name = "closed_at")
-    private OffsetDateTime closedAt;
+    private LocalDateTime closedAt;
 
     @Column(name = "expires_at")
-    private OffsetDateTime expiresAt;
+    private LocalDateTime expiresAt;
 
     @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
+    private LocalDateTime updatedAt;
 
     protected SurveyJpaEntity() {
     }
@@ -85,17 +91,17 @@ public class SurveyJpaEntity {
         this.resultStatus = ResultStatus.WAITING_SELF_RESPONSE;
         this.resultGenerationAttemptCount = 0;
         this.requiredPeerSubmissionCount = requiredPeerSubmissionCount;
-        this.resultAvailableAt = resultAvailableAt;
+        this.resultAvailableAt = toKstLocalDateTime(resultAvailableAt);
         this.characterPackKey = characterPackKey;
         this.characterPackVersion = characterPackVersion;
-        this.createdAt = now;
-        this.updatedAt = now;
+        this.createdAt = toKstLocalDateTime(now);
+        this.updatedAt = toKstLocalDateTime(now);
     }
 
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
-            createdAt = OffsetDateTime.now();
+            createdAt = LocalDateTime.now(KST);
         }
         if (updatedAt == null) {
             updatedAt = createdAt;
@@ -104,7 +110,7 @@ public class SurveyJpaEntity {
 
     @PreUpdate
     void preUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt = LocalDateTime.now(KST);
     }
 
     public void markCollecting() {
@@ -144,11 +150,11 @@ public class SurveyJpaEntity {
     }
 
     public OffsetDateTime getResultAvailableAt() {
-        return resultAvailableAt;
+        return toKstOffsetDateTime(resultAvailableAt);
     }
 
     public OffsetDateTime getCreatedAt() {
-        return createdAt;
+        return toKstOffsetDateTime(createdAt);
     }
 
     public String getCharacterPackKey() {
@@ -157,5 +163,19 @@ public class SurveyJpaEntity {
 
     public String getCharacterPackVersion() {
         return characterPackVersion;
+    }
+
+    private static LocalDateTime toKstLocalDateTime(OffsetDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        return dateTime.atZoneSameInstant(KST).toLocalDateTime();
+    }
+
+    private static OffsetDateTime toKstOffsetDateTime(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        return dateTime.atOffset(KST_OFFSET);
     }
 }

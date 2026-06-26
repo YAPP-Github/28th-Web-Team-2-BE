@@ -56,7 +56,7 @@ class SurveyCommandServiceTest {
             submissionRepository,
             characterPackRepository,
             clock,
-            new SurveyPolicy(Duration.ofHours(24)),
+            new SurveyPolicy(Duration.ofHours(24), 3, 2),
             new ResultStatusResolver(submissionRepository, clock)
     );
 
@@ -92,7 +92,7 @@ class SurveyCommandServiceTest {
                 submissionRepository,
                 characterPackRepository,
                 clock,
-                new SurveyPolicy(Duration.ZERO),
+                new SurveyPolicy(Duration.ZERO, 3, 2),
                 new ResultStatusResolver(submissionRepository, clock)
         );
 
@@ -110,7 +110,7 @@ class SurveyCommandServiceTest {
                 submissionRepository,
                 characterPackRepository,
                 clock,
-                new SurveyPolicy(Duration.ofHours(24)),
+                new SurveyPolicy(Duration.ofHours(24), 3, 2),
                 new ResultStatusResolver(submissionRepository, clock),
                 List.of("dup123", "new456")
         );
@@ -153,6 +153,26 @@ class SurveyCommandServiceTest {
     }
 
     @Test
+    void startSubmissionReplacesThisPersonReferenceWithTargetNickname() {
+        questionRepository.questionContentOverrides.put(1L, "조별 과제 마감 일주일 전, 지금 이 사람 상태는?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("손호민"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("조별 과제 마감 일주일 전, 지금 손호민의 상태는?", result.questions().getFirst().content());
+    }
+
+    @Test
+    void startSubmissionReplacesPossessiveFirstPersonReferenceWithTargetNickname() {
+        questionRepository.questionContentOverrides.put(1L, "평소 내 하루 루틴은?");
+        SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
+
+        SubmissionStartedResult result = service.startSubmission(created.surveyCode());
+
+        assertEquals("평소 만두의 하루 루틴은?", result.questions().getFirst().content());
+    }
+
+    @Test
     void startSubmissionRetriesWhenPeerSubmitterKeyCollides() {
         submissionRepository.duplicateSubmitterKeys.add("dup111");
         SurveyCommandService retryingService = new StubCodeSurveyCommandService(
@@ -161,7 +181,7 @@ class SurveyCommandServiceTest {
                 submissionRepository,
                 characterPackRepository,
                 clock,
-                new SurveyPolicy(Duration.ofHours(24)),
+                new SurveyPolicy(Duration.ofHours(24), 3, 2),
                 new ResultStatusResolver(submissionRepository, clock),
                 List.of("survey1", "dup111", "peer22")
         );

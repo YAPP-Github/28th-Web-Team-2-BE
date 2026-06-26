@@ -14,11 +14,13 @@ public class SurveyPolicyConfig {
     @Bean
     public SurveyPolicy surveyPolicy(
             @Value("${looky.survey.result-open-delay:}") String resultOpenDelay,
-            @Value("${looky.survey.result-open-delay-hours:24}") long resultOpenDelayHours
+            @Value("${looky.survey.result-open-delay-hours:24}") long resultOpenDelayHours,
+            @Value("${looky.survey.required-peer-submission-count:3}") int requiredPeerSubmissionCount,
+            @Value("${looky.survey.question-count-per-trait:2}") int questionCountPerTrait
     ) {
         Duration delay = resultOpenDelay.isBlank()
                 ? Duration.ofHours(resultOpenDelayHours)
                 : DurationStyle.detectAndParse(resultOpenDelay);
-        return new SurveyPolicy(delay);
+        return new SurveyPolicy(delay, requiredPeerSubmissionCount, questionCountPerTrait);
     }
 }

@@ -44,9 +44,9 @@ public class ResultGenerationSourceReaderImpl implements ResultGenerationSourceR
 
     private static String labelFor(SubmitterType submitterType, Map<Long, String> labelsBySubmissionId) {
         if (submitterType == SubmitterType.SELF) {
-            return "SELF";
+            return "본인";
         }
-        long peerCount = labelsBySubmissionId.values().stream().filter(label -> label.startsWith("PEER_")).count();
-        return "PEER_" + (peerCount + 1);
+        long peerCount = labelsBySubmissionId.values().stream().filter(label -> label.startsWith("친구 ")).count();
+        return "친구 " + (peerCount + 1);
     }
 }

@@ -6,13 +6,17 @@ import com.looky.survey.domain.ResultStatus;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 @Transactional
 public class SurveyRepositoryImpl implements SurveyRepository {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private static final List<ResultStatus> RESULT_GENERATION_CANDIDATE_STATUSES = List.of(
             ResultStatus.WAITING_SELF_RESPONSE,
@@ -66,7 +70,7 @@ public class SurveyRepositoryImpl implements SurveyRepository {
     public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
         return surveyJpaRepository.findByResultStatusInAndResultAvailableAtLessThanEqual(
                         RESULT_GENERATION_CANDIDATE_STATUSES,
-                        now
+                        toKstLocalDateTime(now)
                 )
                 .stream()
                 .map(this::toRecord)
@@ -118,5 +122,9 @@ public class SurveyRepositoryImpl implements SurveyRepository {
                 entity.getCharacterPackKey(),
                 entity.getCharacterPackVersion()
         );
+    }
+
+    private LocalDateTime toKstLocalDateTime(OffsetDateTime dateTime) {
+        return dateTime.atZoneSameInstant(KST).toLocalDateTime();
     }
 }

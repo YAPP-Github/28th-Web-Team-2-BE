@@ -88,7 +88,7 @@ class ResultGenerationServiceTest {
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
-        sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, SubmitterType.SELF, "SELF", com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
+        sourceReader.answers = List.of(new ResultAnswerAdjectiveRecord(101L, 11L, SubmitterType.SELF, "본인", com.looky.question.domain.TraitCode.OPENNESS, "질문", "답변", List.of()));
         narrativeClient.narrative = new ResultNarrative(
                 new ResultNarrative.Overview("마음을 잘 여는 사람", "대화를 여는 다정한 기운", "종합 분석 본문", "새로운 대화를 시작해보세요."),
                 Map.of(101L, List.of("호기심 많은")),
@@ -152,7 +152,11 @@ class ResultGenerationServiceTest {
                         얼굴 이목구비 눈코입, 체형, 색상, 스타일은 모두 유지해줘.
                         하얀색 무광의 귀여운 햄스터 3D 랜더링 이미지, 검정색 눈과 입만 살짝 유광, 얼굴의 이목구비 눈코입, 체형, 색상, 스타일 모두 유지.
                         이번 이미지는 OPEN image prompt을 표현해줘.
-                        캐릭터의 표정, 포즈, 소품은 해당 상황이 한눈에 드러나게 바꾸되, 배경은 캐릭터를 돋보이게 하는 저밀도 배경으로 구성해줘.
+                        캐릭터의 표정, 포즈, 시선, 입모양은 해당 상황이 한눈에 드러나게 바꿔줘.
+                        모든 이미지를 비슷한 기본 미소로 통일하지 말고, 설렘, 장난기, 머뭇거림, 울먹임, 결심, 안도감처럼 상황에 맞는 감정이 얼굴에서 바로 읽히게 해줘.
+                        표정과 포즈가 따로 놀지 않게 연결하고, 작은 눈매 변화와 몸의 긴장감 차이도 살려줘.
+                        배경은 캐릭터를 돋보이게 하는 저밀도 배경으로 구성하되, 매번 비슷한 빈 파스텔 배경으로 반복하지 말아줘.
+                        각 이미지마다 상황을 암시하는 큰 배경 요소나 소품 1~2개, 다른 색 분위기, 다른 공간 무드를 넣어서 장면이 다채롭게 느껴지게 해줘.
                         복잡한 오브젝트는 최소화하고, 큰 면 위주의 단순한 배경, 부드러운 파스텔 컬러, 여백이 많은 구성을 사용해줘.
                         캐릭터는 화면 중앙에 크게 배치하고, 배경 요소는 보조적으로만 넣어줘.
                         """,
