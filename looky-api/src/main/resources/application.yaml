@@ -3,7 +3,7 @@ server:
 
 looky:
   survey:
-    result-open-delay: 10m
+    result-open-delay: 0m
     required-peer-submission-count: 3
     question-count-per-trait: 2
   cors:
