@@ -23,13 +23,11 @@ public class ResultStatusResolver {
         if (!submissionRepository.existsCompletedSelfSubmission(survey.id())) {
             return ResultStatus.WAITING_SELF_RESPONSE;
         }
-        if (submissionRepository.countCompletedPeerSubmissions(survey.id()) < survey.requiredPeerSubmissionCount()) {
-            return ResultStatus.COLLECTING_PEER_RESPONSES;
+        if (submissionRepository.countCompletedPeerSubmissions(survey.id()) >= survey.requiredPeerSubmissionCount()
+                || !OffsetDateTime.now(clock).isBefore(survey.resultAvailableAt())) {
+            return ResultStatus.GENERATING;
         }
-        if (OffsetDateTime.now(clock).isBefore(survey.resultAvailableAt())) {
-            return ResultStatus.WAITING_RESULT_OPEN_TIME;
-        }
-        return ResultStatus.GENERATING;
+        return ResultStatus.COLLECTING_PEER_RESPONSES;
     }
 
     private boolean isTerminalStatus(ResultStatus resultStatus) {

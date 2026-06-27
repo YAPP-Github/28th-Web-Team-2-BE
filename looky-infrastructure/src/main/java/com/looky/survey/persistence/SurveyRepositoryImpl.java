@@ -64,10 +64,7 @@ public class SurveyRepositoryImpl implements SurveyRepository {
     @Override
     @Transactional(readOnly = true)
     public List<SurveyRecord> findResultGenerationCandidates(OffsetDateTime now) {
-        return surveyJpaRepository.findByResultStatusInAndResultAvailableAtLessThanEqual(
-                        RESULT_GENERATION_CANDIDATE_STATUSES,
-                        now
-                )
+        return surveyJpaRepository.findByResultStatusIn(RESULT_GENERATION_CANDIDATE_STATUSES)
                 .stream()
                 .map(this::toRecord)
                 .toList();

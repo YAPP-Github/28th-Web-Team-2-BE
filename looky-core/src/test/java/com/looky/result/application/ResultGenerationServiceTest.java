@@ -230,7 +230,7 @@ class ResultGenerationServiceTest {
     }
 
     @Test
-    void generateReadyResultsSkipsWhenPeerSubmissionCountIsLow() {
+    void generateReadyResultsCreatesResultWhenOpenTimePassedWithLowPeerCount() {
         SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).minusMinutes(1));
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
@@ -238,17 +238,31 @@ class ResultGenerationServiceTest {
 
         int generatedCount = service.generateReadyResults();
 
-        assertEquals(0, generatedCount);
-        assertFalse(resultRepository.resultsBySurveyId.containsKey(survey.id()));
-        assertTrue(surveyRepository.statusUpdates.isEmpty());
+        assertEquals(1, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(survey.id()));
+        assertTrue(resultRepository.resultsBySurveyId.containsKey(survey.id()));
     }
 
     @Test
-    void generateReadyResultsSkipsWhenResultOpenTimeIsInFuture() {
+    void generateReadyResultsCreatesResultWhenPeerCountReachedBeforeOpenTime() {
         SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).plusMinutes(1));
         surveyRepository.save(survey);
         submissionRepository.completedSelfSurveyIds.add(survey.id());
         submissionRepository.completedPeerCounts.put(survey.id(), 3L);
+
+        int generatedCount = service.generateReadyResults();
+
+        assertEquals(1, generatedCount);
+        assertEquals(List.of(ResultStatus.GENERATING, ResultStatus.READY), surveyRepository.statusUpdates.get(survey.id()));
+        assertTrue(resultRepository.resultsBySurveyId.containsKey(survey.id()));
+    }
+
+    @Test
+    void generateReadyResultsSkipsWhenPeerCountIsLowBeforeOpenTime() {
+        SurveyRecord survey = survey(ResultStatus.WAITING_RESULT_OPEN_TIME, OffsetDateTime.now(clock).plusMinutes(1));
+        surveyRepository.save(survey);
+        submissionRepository.completedSelfSurveyIds.add(survey.id());
+        submissionRepository.completedPeerCounts.put(survey.id(), 2L);
 
         int generatedCount = service.generateReadyResults();
 

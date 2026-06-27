@@ -301,8 +301,8 @@ public class ResultGenerationService {
 
     private boolean isReadyToGenerate(SurveyRecord survey, OffsetDateTime now) {
         return submissionRepository.existsCompletedSelfSubmission(survey.id())
-                && submissionRepository.countCompletedPeerSubmissions(survey.id()) >= survey.requiredPeerSubmissionCount()
-                && !survey.resultAvailableAt().isAfter(now);
+                && (submissionRepository.countCompletedPeerSubmissions(survey.id()) >= survey.requiredPeerSubmissionCount()
+                        || !survey.resultAvailableAt().isAfter(now));
     }
 
     private void markFailed(SurveyRecord survey, int attemptNumber, String reason) {

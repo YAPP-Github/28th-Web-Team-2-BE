@@ -90,7 +90,7 @@ class SurveyResultFlowIntegrationTest {
     }
 
     @Test
-    void resultQueryReturnsCollectingPeerResponsesAfterSelfAndTwoPeerSubmissions() {
+    void resultQueryReturnsGeneratingAfterOpenTimeWithTwoPeerSubmissions() {
         SurveyCreatedResult survey = surveyService.createSurvey(new CreateSurveyCommand("만두"));
 
         SubmissionStartedResult selfSubmission = surveyService.startSubmission(survey.surveyCode());
@@ -102,7 +102,7 @@ class SurveyResultFlowIntegrationTest {
 
         SurveyResultResult result = resultQueryService.getSurveyResult(survey.surveyCode());
 
-        assertEquals(ResultStatus.COLLECTING_PEER_RESPONSES, result.resultStatus());
+        assertEquals(ResultStatus.GENERATING, result.resultStatus());
         assertEquals(null, result.quadrantImageUrls());
     }
 

@@ -338,6 +338,29 @@ class SurveyCommandServiceTest {
     }
 
     @Test
+    void getSurveyStatusReturnsGeneratingWhenOpenTimeReachedWithLowPeerCount() {
+        SurveyCommandService zeroDelayService = new SurveyCommandService(
+                surveyRepository,
+                questionRepository,
+                submissionRepository,
+                characterPackRepository,
+                clock,
+                new SurveyPolicy(Duration.ZERO),
+                new ResultStatusResolver(submissionRepository, clock)
+        );
+        SurveyCreatedResult created = zeroDelayService.createSurvey(new CreateSurveyCommand("만두"));
+        submissionRepository.selfCompleted = true;
+        submissionRepository.peerCompletedCount = 2;
+        surveyRepository.markCollecting(created.surveyId());
+
+        SurveyStatusResult result = zeroDelayService.getSurveyStatus(created.surveyCode());
+
+        assertEquals(ResultStatus.GENERATING, result.resultStatus());
+        assertEquals(2, result.peerSubmissionCount());
+        assertEquals(0, result.remainingSecondsToResultOpen());
+    }
+
+    @Test
     void submitAnswersAdvancesStoredResultStatusAfterSelfCompletion() {
         SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
         SubmissionStartedResult selfSubmission = service.startSubmission(created.surveyCode());
@@ -350,7 +373,7 @@ class SurveyCommandServiceTest {
     }
 
     @Test
-    void startSubmissionAllowsMorePeersThanRequiredCountWhileSurveyIsStillCollecting() {
+    void startSubmissionAllowsMorePeersThanRequiredCountWhileResultIsGenerating() {
         SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
         SubmissionStartedResult selfSubmission = service.startSubmission(created.surveyCode());
         service.submitAnswers(selfSubmission.submissionId(), answersFrom(selfSubmission));
@@ -364,11 +387,11 @@ class SurveyCommandServiceTest {
         SurveyStatusResult result = service.getSurveyStatus(created.surveyCode());
 
         assertEquals(4, result.peerSubmissionCount());
-        assertEquals(ResultStatus.WAITING_RESULT_OPEN_TIME, result.resultStatus());
+        assertEquals(ResultStatus.GENERATING, result.resultStatus());
     }
 
     @Test
-    void getSurveyStatusReturnsWaitingResultOpenTimeWhenPeerCountIsEnoughBeforeOpenTime() {
+    void getSurveyStatusReturnsGeneratingWhenPeerCountIsEnoughBeforeOpenTime() {
         SurveyCreatedResult created = service.createSurvey(new CreateSurveyCommand("만두"));
         submissionRepository.selfCompleted = true;
         submissionRepository.peerCompletedCount = 3;
@@ -376,7 +399,7 @@ class SurveyCommandServiceTest {
 
         SurveyStatusResult result = service.getSurveyStatus(created.surveyCode());
 
-        assertEquals(ResultStatus.WAITING_RESULT_OPEN_TIME, result.resultStatus());
+        assertEquals(ResultStatus.GENERATING, result.resultStatus());
         assertEquals(3, result.peerSubmissionCount());
         assertTrue(result.remainingSecondsToResultOpen() > 0);
     }
