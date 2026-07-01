@@ -1,5 +1,6 @@
 package com.looky.api.survey.dto;
 
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.survey.application.dto.SurveyResultResult;
 import com.looky.survey.domain.ResultStatus;
 
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 public record SurveyResultResponse(
         String surveyCode,
         ResultStatus resultStatus,
+        ResultGenerationPhase generationPhase,
         Map<String, String> quadrantImageUrls,
         Map<String, String> quadrantInterpretations,
         OverallResultResponse overall,
@@ -24,6 +26,7 @@ public record SurveyResultResponse(
         return new SurveyResultResponse(
                 result.surveyCode(),
                 result.resultStatus(),
+                result.generationPhase(),
                 result.quadrantImageUrls(),
                 result.quadrantInterpretations(),
                 overall,

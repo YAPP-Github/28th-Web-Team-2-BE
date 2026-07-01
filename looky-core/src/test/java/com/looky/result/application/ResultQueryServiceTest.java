@@ -2,6 +2,7 @@ package com.looky.result.application;
 
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
@@ -132,6 +133,18 @@ class ResultQueryServiceTest {
 
         assertEquals("b91k2p8xq4z2", result.surveyCode());
         assertEquals(ResultStatus.GENERATING, result.resultStatus());
+        assertEquals(ResultGenerationPhase.QUEUED, result.generationPhase());
+        assertEquals(null, result.quadrantImageUrls());
+    }
+
+    @Test
+    void getSurveyResultReturnsNarrativeGeneratingPhaseWhenStored() {
+        surveyRepository.save(survey(ResultStatus.GENERATING, ResultGenerationPhase.NARRATIVE_GENERATING));
+
+        SurveyResultResult result = service.getSurveyResult("b91k2p8xq4z2");
+
+        assertEquals(ResultStatus.GENERATING, result.resultStatus());
+        assertEquals(ResultGenerationPhase.NARRATIVE_GENERATING, result.generationPhase());
         assertEquals(null, result.quadrantImageUrls());
     }
 
@@ -211,6 +224,10 @@ class ResultQueryServiceTest {
     }
 
     private SurveyRecord survey(ResultStatus resultStatus) {
+        return survey(resultStatus, null);
+    }
+
+    private SurveyRecord survey(ResultStatus resultStatus, ResultGenerationPhase generationPhase) {
         return new SurveyRecord(
                 1L,
                 "만두",
@@ -221,6 +238,7 @@ class ResultQueryServiceTest {
                 3,
                 NOW.plusHours(24),
                 NOW,
+                generationPhase,
                 "pomang",
                 "v1"
         );
@@ -284,6 +302,11 @@ class ResultQueryServiceTest {
 
         @Override
         public void syncResultStatus(Long surveyId, ResultStatus resultStatus) {
+            throw new UnsupportedOperationException("not used in result query tests");
+        }
+
+        @Override
+        public void updateGenerationPhase(Long surveyId, ResultGenerationPhase generationPhase) {
             throw new UnsupportedOperationException("not used in result query tests");
         }
     }

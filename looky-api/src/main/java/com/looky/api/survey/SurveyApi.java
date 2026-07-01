@@ -130,7 +130,7 @@ public interface SurveyApi {
 
     @Operation(
             summary = "설문 결과 조회",
-            description = "surveyCode로 결과 조회 상태를 반환합니다. 유효한 surveyCode라면 200으로 응답하며, payload.resultStatus를 확인합니다. quadrantImageUrls는 READY 상태일 때만 내려갑니다.",
+            description = "surveyCode로 결과 조회 상태를 반환합니다. 유효한 surveyCode라면 200으로 응답하며, payload.resultStatus를 확인합니다. payload.generationPhase는 GENERATING 상태일 때만 의미가 있습니다. quadrantImageUrls는 READY 상태일 때만 내려갑니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200",
@@ -147,6 +147,7 @@ public interface SurveyApi {
                                                               "payload": {
                                                                 "surveyCode": "b91k2p",
                                                                 "resultStatus": "READY",
+                                                                "generationPhase": null,
                                                                 "quadrantImageUrls": {
                                                                   "OPEN": "https://cdn.looky.my/results/b91k2p/open.png",
                                                                   "BLIND": "https://cdn.looky.my/results/b91k2p/blind.png",
@@ -189,6 +190,7 @@ public interface SurveyApi {
                                                               "payload": {
                                                                 "surveyCode": "b91k2p",
                                                                 "resultStatus": "COLLECTING_PEER_RESPONSES",
+                                                                "generationPhase": null,
                                                                 "quadrantImageUrls": null
                                                               }
                                                             }
@@ -203,6 +205,7 @@ public interface SurveyApi {
                                                               "payload": {
                                                                 "surveyCode": "b91k2p",
                                                                 "resultStatus": "GENERATING",
+                                                                "generationPhase": "IMAGE_GENERATING",
                                                                 "quadrantImageUrls": null
                                                               }
                                                             }
@@ -217,6 +220,7 @@ public interface SurveyApi {
                                                               "payload": {
                                                                 "surveyCode": "b91k2p",
                                                                 "resultStatus": "FAILED",
+                                                                "generationPhase": null,
                                                                 "quadrantImageUrls": null
                                                               }
                                                             }

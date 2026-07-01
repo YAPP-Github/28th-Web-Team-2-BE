@@ -2,18 +2,21 @@ package com.looky.survey.application;
 
 import com.looky.submission.application.SubmissionRepository;
 import com.looky.survey.domain.ResultStatus;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
 
 @Component
-@RequiredArgsConstructor
 public class ResultStatusResolver {
 
     private final SubmissionRepository submissionRepository;
     private final Clock clock;
+
+    public ResultStatusResolver(SubmissionRepository submissionRepository, Clock clock) {
+        this.submissionRepository = submissionRepository;
+        this.clock = clock;
+    }
 
     public ResultStatus resolve(SurveyRecord survey) {
         if (isTerminalStatus(survey.resultStatus())) {

@@ -1,5 +1,6 @@
 package com.looky.survey.persistence;
 
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
 import com.looky.survey.domain.ResultStatus;
@@ -101,6 +102,12 @@ public class SurveyRepositoryImpl implements SurveyRepository {
         );
     }
 
+    @Override
+    public void updateGenerationPhase(Long surveyId, ResultGenerationPhase generationPhase) {
+        SurveyJpaEntity entity = surveyJpaRepository.findById(surveyId).orElseThrow();
+        entity.updateGenerationPhase(generationPhase);
+    }
+
     private SurveyRecord toRecord(SurveyJpaEntity entity) {
         return new SurveyRecord(
                 entity.getId(),
@@ -112,6 +119,7 @@ public class SurveyRepositoryImpl implements SurveyRepository {
                 entity.getRequiredPeerSubmissionCount(),
                 entity.getResultAvailableAt(),
                 entity.getCreatedAt(),
+                entity.getGenerationPhase(),
                 entity.getCharacterPackKey(),
                 entity.getCharacterPackVersion()
         );

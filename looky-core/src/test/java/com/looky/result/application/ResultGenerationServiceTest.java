@@ -3,6 +3,7 @@ package com.looky.result.application;
 import com.looky.characterpack.application.CharacterPackRepository;
 import com.looky.characterpack.application.CharacterPackVariantRecord;
 import com.looky.result.domain.QuadrantWorkStatus;
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.submission.application.SubmissionRepository;
 import com.looky.submission.domain.SubmitterType;
@@ -571,6 +572,7 @@ class ResultGenerationServiceTest {
                     survey.requiredPeerSubmissionCount(),
                     survey.resultAvailableAt(),
                     survey.createdAt(),
+                    survey.generationPhase(),
                     survey.characterPackKey(),
                     survey.characterPackVersion()
             ));
@@ -591,6 +593,7 @@ class ResultGenerationServiceTest {
                     survey.requiredPeerSubmissionCount(),
                     survey.resultAvailableAt(),
                     survey.createdAt(),
+                    resultStatus == ResultStatus.GENERATING ? survey.generationPhase() : null,
                     survey.characterPackKey(),
                     survey.characterPackVersion()
             ));
@@ -607,6 +610,25 @@ class ResultGenerationServiceTest {
             ).contains(survey.resultStatus())) {
                 updateResultStatus(surveyId, resultStatus);
             }
+        }
+
+        @Override
+        public void updateGenerationPhase(Long surveyId, ResultGenerationPhase generationPhase) {
+            SurveyRecord survey = surveys.get(surveyId);
+            surveys.put(surveyId, new SurveyRecord(
+                    survey.id(),
+                    survey.userNickname(),
+                    survey.surveyCode(),
+                    survey.surveyStatus(),
+                    survey.resultStatus(),
+                    survey.resultGenerationAttemptCount(),
+                    survey.requiredPeerSubmissionCount(),
+                    survey.resultAvailableAt(),
+                    survey.createdAt(),
+                    generationPhase,
+                    survey.characterPackKey(),
+                    survey.characterPackVersion()
+            ));
         }
     }
 

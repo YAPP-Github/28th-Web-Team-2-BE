@@ -1,5 +1,6 @@
 package com.looky.survey.application;
 
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.survey.domain.ResultStatus;
 import org.springframework.stereotype.Repository;
 
@@ -35,4 +36,6 @@ public interface SurveyRepository {
     void updateResultStatus(Long surveyId, ResultStatus resultStatus);
 
     void syncResultStatus(Long surveyId, ResultStatus resultStatus);
+
+    void updateGenerationPhase(Long surveyId, ResultGenerationPhase generationPhase);
 }

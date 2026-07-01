@@ -4,6 +4,7 @@ import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
 import com.looky.result.application.ResultOverviewRecord;
 import com.looky.result.application.ResultQueryService;
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.survey.application.SurveyService;
 import com.looky.survey.application.dto.AnswerCommand;
 import com.looky.survey.application.dto.CreateSurveyCommand;
@@ -228,6 +229,7 @@ class SurveyControllerTest {
                 .willReturn(new SurveyResultResult(
                         SURVEY_CODE,
                         ResultStatus.READY,
+                        null,
                         Map.of(
                                 "OPEN", "https://cdn.looky.my/results/b91/open.png",
                                 "BLIND", "https://cdn.looky.my/results/b91/blind.png",
@@ -297,13 +299,15 @@ class SurveyControllerTest {
                 .willReturn(new SurveyResultResult(
                         SURVEY_CODE,
                         ResultStatus.GENERATING,
-                        null
+                        null,
+                        ResultGenerationPhase.IMAGE_GENERATING
                 ));
 
         mockMvc.perform(get("/api/v1/surveys/" + SURVEY_CODE + "/result"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
                 .andExpect(jsonPath("$.payload.resultStatus").value("GENERATING"))
+                .andExpect(jsonPath("$.payload.generationPhase").value("IMAGE_GENERATING"))
                 .andExpect(jsonPath("$.payload.quadrantImageUrls").value(nullValue()));
     }
 

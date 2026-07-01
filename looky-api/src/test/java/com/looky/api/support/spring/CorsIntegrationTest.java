@@ -36,6 +36,18 @@ class CorsIntegrationTest {
     }
 
     @Test
+    void preflightRequestAllowsProductionFrontendOriginForSurveyCreation() throws Exception {
+        mockMvc.perform(options("/api/v1/surveys")
+                        .header(HttpHeaders.ORIGIN, "https://looky.my")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://looky.my"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, Matchers.containsString("POST")));
+    }
+
+    @Test
     void apiResponseExposesConfiguredHeadersToAllowedOrigins() throws Exception {
         mockMvc.perform(get("/api/v1/health")
                         .header(HttpHeaders.ORIGIN, "http://192.168.45.187:3000"))

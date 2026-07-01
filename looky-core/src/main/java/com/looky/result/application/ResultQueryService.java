@@ -2,6 +2,8 @@ package com.looky.result.application;
 
 import com.looky.common.exception.ErrorCode;
 import com.looky.common.exception.LookyException;
+import com.looky.result.domain.QuadrantWorkStatus;
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.result.domain.ResultQuadrantType;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
@@ -35,6 +37,14 @@ public class ResultQueryService {
         SurveyRecord survey = surveyRepository.findBySurveyCode(surveyCode)
                 .orElseThrow(() -> new LookyException(ErrorCode.INVALID_SURVEY_CODE));
         ResultStatus resultStatus = resultStatusResolver.resolve(survey);
+        if (resultStatus == ResultStatus.GENERATING) {
+            return new SurveyResultResult(
+                    survey.surveyCode(),
+                    resultStatus,
+                    null,
+                    resolveGenerationPhase(survey)
+            );
+        }
         if (resultStatus != ResultStatus.READY) {
             return new SurveyResultResult(survey.surveyCode(), resultStatus, null);
         }
@@ -48,6 +58,7 @@ public class ResultQueryService {
         return new SurveyResultResult(
                 survey.surveyCode(),
                 resultStatus,
+                null,
                 orderedQuadrantMap(imageUrls),
                 orderedQuadrantMap(interpretations),
                 overview,
@@ -122,6 +133,25 @@ public class ResultQueryService {
             ordered.put(type.name(), valuesByType.get(type));
         }
         return Collections.unmodifiableMap(ordered);
+    }
+
+    private ResultGenerationPhase resolveGenerationPhase(SurveyRecord survey) {
+        if (survey.generationPhase() != null) {
+            return survey.generationPhase();
+        }
+        return resultRepository.findBySurveyId(survey.id())
+                .map(this::inferGenerationPhase)
+                .orElse(ResultGenerationPhase.QUEUED);
+    }
+
+    private ResultGenerationPhase inferGenerationPhase(ResultRecord result) {
+        if (result.quadrants().isEmpty()) {
+            return ResultGenerationPhase.NARRATIVE_GENERATING;
+        }
+        if (result.quadrants().stream().anyMatch(quadrant -> quadrant.workStatus() == QuadrantWorkStatus.FAILED)) {
+            return ResultGenerationPhase.RETRYING;
+        }
+        return ResultGenerationPhase.IMAGE_GENERATING;
     }
 
     private static boolean isBlank(String value) {

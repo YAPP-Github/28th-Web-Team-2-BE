@@ -6,6 +6,7 @@ import com.looky.submission.application.SubmissionRepository;
 import com.looky.survey.application.SurveyRecord;
 import com.looky.survey.application.SurveyRepository;
 import com.looky.survey.domain.ResultStatus;
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.result.domain.QuadrantWorkStatus;
 import com.looky.result.domain.ResultQuadrantType;
 import lombok.extern.slf4j.Slf4j;
@@ -114,6 +115,7 @@ public class ResultGenerationService {
             if (!surveyRepository.markGenerating(survey.id(), resultGenerationPolicy.maxAttempts())) {
                 continue;
             }
+            surveyRepository.updateGenerationPhase(survey.id(), ResultGenerationPhase.QUEUED);
             int attemptNumber = survey.resultGenerationAttemptCount() + 1;
             long peerSubmissionCount = submissionRepository.countCompletedPeerSubmissions(survey.id());
             log.info(
@@ -131,6 +133,7 @@ public class ResultGenerationService {
 
             try {
                 if (!resultRepository.hasNarrative(survey.id())) {
+                    surveyRepository.updateGenerationPhase(survey.id(), ResultGenerationPhase.NARRATIVE_GENERATING);
                     List<ResultAnswerAdjectiveRecord> answers = sourceReader.readCompletedAnswers(survey.id());
                     String narrativePrompt = ResultNarrativePromptComposer.compose(answers);
                     log.info(
@@ -176,6 +179,15 @@ public class ResultGenerationService {
                     );
                     generatedCount++;
                 } else {
+                    List<ResultQuadrantRecord> imageWorkCandidates = resultRepository.findImageWorkCandidates(survey.id(), resultGenerationPolicy.maxAttempts());
+                    if (!imageWorkCandidates.isEmpty()) {
+                        surveyRepository.updateGenerationPhase(
+                                survey.id(),
+                                imageWorkCandidates.stream().anyMatch(quadrant -> quadrant.workStatus() == QuadrantWorkStatus.FAILED)
+                                        ? ResultGenerationPhase.RETRYING
+                                        : ResultGenerationPhase.IMAGE_GENERATING
+                        );
+                    }
                     List<CharacterPackVariantRecord> referenceVariants = characterPackRepository.findReferenceVariants(
                             survey.characterPackKey(),
                             survey.characterPackVersion()
@@ -189,7 +201,7 @@ public class ResultGenerationService {
                             referenceVariants,
                             variantsByQuadrant
                     );
-                    List<CompletableFuture<Void>> imageFutures = resultRepository.findImageWorkCandidates(survey.id(), resultGenerationPolicy.maxAttempts()).stream()
+                    List<CompletableFuture<Void>> imageFutures = imageWorkCandidates.stream()
                             .map(quadrant -> CompletableFuture.runAsync(
                                     () -> generateQuadrantImage(survey, quadrant, variantsByQuadrant, referenceAssetKeys),
                                     resultImageGenerationExecutor
@@ -212,6 +224,8 @@ public class ResultGenerationService {
                     } else if (result.quadrants().stream().anyMatch(quadrant -> quadrant.workStatus() == QuadrantWorkStatus.FAILED
                             && quadrant.attemptCount() >= resultGenerationPolicy.maxAttempts())) {
                         markFailed(survey, attemptNumber, "quadrant image retries exhausted");
+                    } else if (result.quadrants().stream().anyMatch(quadrant -> quadrant.workStatus() == QuadrantWorkStatus.FAILED)) {
+                        surveyRepository.updateGenerationPhase(survey.id(), ResultGenerationPhase.RETRYING);
                     }
                 }
             } catch (RuntimeException exception) {
@@ -225,6 +239,8 @@ public class ResultGenerationService {
                 );
                 if (attemptNumber >= resultGenerationPolicy.maxAttempts()) {
                     markFailed(survey, attemptNumber, exception.getMessage());
+                } else {
+                    surveyRepository.updateGenerationPhase(survey.id(), ResultGenerationPhase.QUEUED);
                 }
             }
         }
@@ -308,6 +324,7 @@ public class ResultGenerationService {
     private void markFailed(SurveyRecord survey, int attemptNumber, String reason) {
         try {
             surveyRepository.updateResultStatus(survey.id(), ResultStatus.FAILED);
+            surveyRepository.updateGenerationPhase(survey.id(), null);
             log.error(
                     "result.failed surveyId={} surveyCode={} attempt={} reason={}",
                     survey.id(),

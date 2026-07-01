@@ -1,5 +1,6 @@
 package com.looky.survey.persistence;
 
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.survey.domain.ResultStatus;
 import com.looky.survey.domain.SurveyStatus;
 import jakarta.persistence.Column;
@@ -39,6 +40,10 @@ public class SurveyJpaEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "result_status", nullable = false, length = 64)
     private ResultStatus resultStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "generation_phase", length = 40)
+    private ResultGenerationPhase generationPhase;
 
     @Column(name = "result_generation_attempt_count", nullable = false)
     private int resultGenerationAttemptCount;
@@ -113,6 +118,13 @@ public class SurveyJpaEntity {
 
     public void updateResultStatus(ResultStatus resultStatus) {
         this.resultStatus = resultStatus;
+        if (resultStatus != ResultStatus.GENERATING) {
+            this.generationPhase = null;
+        }
+    }
+
+    public void updateGenerationPhase(ResultGenerationPhase generationPhase) {
+        this.generationPhase = generationPhase;
     }
 
     public Long getId() {
@@ -133,6 +145,10 @@ public class SurveyJpaEntity {
 
     public ResultStatus getResultStatus() {
         return resultStatus;
+    }
+
+    public ResultGenerationPhase getGenerationPhase() {
+        return generationPhase;
     }
 
     public int getResultGenerationAttemptCount() {

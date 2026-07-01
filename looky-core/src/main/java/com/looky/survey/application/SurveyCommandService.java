@@ -7,6 +7,7 @@ import com.looky.common.exception.LookyException;
 import com.looky.question.application.QuestionRecord;
 import com.looky.question.application.QuestionRepository;
 import com.looky.question.domain.TraitCode;
+import com.looky.result.domain.ResultGenerationPhase;
 import com.looky.submission.application.SubmissionQuestionRecord;
 import com.looky.submission.application.SubmissionRecord;
 import com.looky.submission.application.SubmissionRepository;
@@ -153,6 +154,9 @@ public class SurveyCommandService implements SurveyService {
                 .orElseThrow(() -> new LookyException(ErrorCode.INTERNAL_SERVER_ERROR));
         ResultStatus resultStatus = resultStatusResolver.resolve(survey);
         surveyRepository.syncResultStatus(survey.id(), resultStatus);
+        if (resultStatus == ResultStatus.GENERATING) {
+            surveyRepository.updateGenerationPhase(survey.id(), ResultGenerationPhase.QUEUED);
+        }
         long peerSubmissionCount = submissionRepository.countCompletedPeerSubmissions(submission.surveyId());
         log.info(
                 "submission.completed surveyId={} surveyCode={} submissionId={} submitterType={} peerSubmissionCount={} requiredPeerSubmissionCount={} resultStatus={} submittedAt={}",
