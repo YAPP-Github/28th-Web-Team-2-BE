@@ -9,6 +9,7 @@ looky:
       - http://localhost:3000
       - http://localhost:*
       - http://127.0.0.1:*
+      - http://192.168.0.100:3000
       - http://192.168.45.187:3000
       - https://looky.my
       - https://www.looky.my

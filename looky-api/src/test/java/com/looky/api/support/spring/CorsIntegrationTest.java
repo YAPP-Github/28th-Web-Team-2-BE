@@ -55,4 +55,12 @@ class CorsIntegrationTest {
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://192.168.45.187:3000"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, Matchers.containsString("Location")));
     }
+
+    @Test
+    void apiResponseAllowsRequestedLocalNetworkFrontendOrigin() throws Exception {
+        mockMvc.perform(get("/api/v1/health")
+                        .header(HttpHeaders.ORIGIN, "http://192.168.0.100:3000"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://192.168.0.100:3000"));
+    }
 }
