@@ -63,4 +63,12 @@ class CorsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://192.168.0.100:3000"));
     }
+
+    @Test
+    void apiResponseAllowsRequestedPublicIpFrontendOrigin() throws Exception {
+        mockMvc.perform(get("/api/v1/health")
+                        .header(HttpHeaders.ORIGIN, "http://180.233.242.210:3000"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://180.233.242.210:3000"));
+    }
 }
